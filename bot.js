@@ -9,7 +9,13 @@ rawdata = fs.readFileSync('users.json');
 var USERS = JSON.parse(rawdata)
 
 function usersContain(user) {
-    return getUserById(user.id) != undefined
+    for (let i in USERS) {
+        if (USERS[i].id == user.id) {
+            USERS[i] = user 
+            return true
+        }
+    }
+    return false
 }
 
 function getUserById(id) {
@@ -29,13 +35,11 @@ function checkUserData(user) {
     fs.writeFileSync('users.json', user_data)
 }
 
-function registerUser(user) {
-    user.cat_count = 0
-}
 bot.onText(/start/, function (msg, match) {
     console.log('On start')
     let user = msg.from
-    registerUser(user)
+    user.cat_count = 0
+    checkUserData(user)
 });
 
 var HttpClient = function() {
