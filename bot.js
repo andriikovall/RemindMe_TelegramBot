@@ -1,6 +1,7 @@
 var fs = require("fs");
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 const TOKEN = require('./bot_token.json')['token']
+// const request = require('request') @todo
 
 var TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(TOKEN, { polling: true, timeout: 500 });
@@ -64,22 +65,24 @@ var keyboard_anwers = {
     "Сегодня": 6,
     "Завтра": 7,
     "Послезавтра": 8,
-    "Другая_дата": 9
+    "Другая_дата": 9,
+    "Назад_создание_заметки": 10,
+    "Назад_изменение_даты": 11,
+    "Назад_изменение_время": 12
 }
 console.log(keyboard_anwers.Создать_заметку)
 
-function onStart(user) {
-    checkUserData(user)
+function onStartMsg(id) {
     var options = {
-        reply_markup: JSON.stringify({
-            inline_keyboard: [
-                [{ text: 'Создать заметку', callback_data: keyboard_anwers.Создать_заметку }],
-                [{ text: 'Получить картинку котика)', callback_data: keyboard_anwers.Получить_котика }]
-            ]
-        })
+        reply_markup: on_start_markup
     };
 
-    bot.sendMessage(user.id, "Выбери опцию", options);
+    bot.sendMessage(id, "Выбери опцию", options);
+}
+
+function onStart(user) {
+    checkUserData(user)
+    onStartMsg(user.id)
 }
 
 bot.onText(/start/, function (msg, match) {
@@ -110,64 +113,86 @@ function sendCat(id) {
     var client = new HttpClient();
     client.get('https://api.thecatapi.com/v1/images/search', function (response) {
         let image_url = JSON.parse(response)[0]['url']
-        bot.sendPhoto(id, image_url)
-        onStart(user)
+        bot.sendPhoto(id, image_url) //@todo reply markup and always editing messages
     });
 }
 
 
 bot.onText(/cat/, function (msg, match) {
-
     sendCat(user.id)
 });
+
+var on_start_markup = JSON.stringify({
+    inline_keyboard: [
+        [{ text: 'Создать заметку', callback_data: keyboard_anwers.Создать_заметку }],
+        [{ text: 'Получить картинку котика)', callback_data: keyboard_anwers.Получить_котика }]
+    ]
+})
+
+
+var create_note_markup = JSON.stringify({
+    inline_keyboard: [
+        [{ text: 'Изменить дату', callback_data: keyboard_anwers.Изменить_дату }],
+        [{ text: 'Изменить время', callback_data: keyboard_anwers.Изменить_время }],
+        [{ text: 'Изменить текст', callback_data: keyboard_anwers.Изменить_текст }],
+        [{ text: 'Назад', callback_data: keyboard_anwers.Назад_создание_заметки }]
+    ]
+})
+
+var change_date_markup = JSON.stringify({
+    inline_keyboard: [
+        [{ text: 'Сегодня', callback_data: keyboard_anwers.Сегодня }],
+        [{ text: 'Завтра', callback_data: keyboard_anwers.Завтра }, { text: 'Послезавтра', callback_data: keyboard_anwers.Послезавтра }],
+        [{ text: 'Другая дата', callback_data: keyboard_anwers.Другая_дата }], 
+        [{ text: 'Назад', callback_data: keyboard_anwers.Назад_изменение_даты }]
+    ]
+})
 
 
 bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     const action = callbackQuery.data;
     const msg = callbackQuery.message;
     let text;
-    const opts = {
-        chat_id: msg.chat.id,
-        message_id: msg.message_id,
-    };
+    // const opts = {
+    //     chat_id: msg.chat.id,
+    //     message_id: msg.message_id,
+    // };
 
     if (action == keyboard_anwers.Создать_заметку) {
-        let opts = {
-            chat_id: msg.chat.id,
-            message_id: msg.message_id, // IT WOEKS!!!
-            reply_markup: JSON.stringify({
-                inline_keyboard: [
-                    [{ text: 'Изменить дату', callback_data: keyboard_anwers.Изменить_дату }],
-                    [{ text: 'Изменить время', callback_data: keyboard_anwers.Изменить_время }],
-                    [{ text: 'Изменить текст', callback_data: keyboard_anwers.Изменить_текст }]
-                ]
-            })
+        let opts = { // @todo put this into func
+            reply_markup: create_note_markup
         }
         text = JSON.stringify(getUserBufferNote(msg.chat.id))
         if (text == undefined) {
             text = "default debug note"
         }
-        // bot.sendMessage(msg.chat.id, JSON.stringify(text), opts)
-        // myBot.editMessageText("edited! :)", {message_id: messsge_id})
-        bot.editMessageText(text,opts)
+        bot.sendMessage(msg.chat.id, text, opts)
     } else if (action == keyboard_anwers.Получить_котика) {
         sendCat(msg.chat.id)
     } else if (action == keyboard_anwers.Изменить_дату) {
         let opts = {
-            reply_markup: JSON.stringify({
-                inline_keyboard: [
-                    [{ text: 'Сегодня', callback_data: keyboard_anwers.Сегодня }],
-                    [{ text: 'Завтра', callback_data: keyboard_anwers.Завтра }],
-                    [{ text: 'Послезавтра', callback_data: keyboard_anwers.Послезавтра }],
-                    [{ text: 'Другая дата', callback_data: keyboard_anwers.Другая_дата }]
-                ]
-            })
+            chat_id: msg.chat.id,
+            message_id: msg.message_id,
+            reply_markup: change_date_markup
         }
-        text = getUserBufferNote(msg.chat.id)
+        text = JSON.stringify(getUserBufferNote(msg.chat.id))
         if (text == undefined) {
             text = "default debug note"
         }
-        bot.sendMessage(msg.chat.id, text, opts)
+        bot.editMessageText(text,opts)
+    } else if (action == keyboard_anwers.Назад_создание_заметки){
+        onStartMsg(msg.chat.id)
+    } else if (action == keyboard_anwers.Назад_изменение_даты ){
+        let opts = { // @todo put this into func
+            chat_id: msg.chat.id,
+            message_id: msg.message_id,
+            reply_markup: create_note_markup
+        }
+        text = JSON.stringify(getUserBufferNote(msg.chat.id))
+        if (text == undefined) {
+            text = "default debug note"
+        }
+        bot.editMessageText(text, opts)
     }
 
 
