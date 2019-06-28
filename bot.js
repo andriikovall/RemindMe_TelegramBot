@@ -182,7 +182,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         bot.editMessageText(text,opts)
     } else if (action == keyboard_anwers.Назад_создание_заметки){
         onStartMsg(msg.chat.id)
-    } else if (action == keyboard_anwers.Назад_изменение_даты ){
+    } else if (action == keyboard_anwers.Назад_изменение_даты ){ 
         let opts = { // @todo put this into func
             chat_id: msg.chat.id,
             message_id: msg.message_id,
