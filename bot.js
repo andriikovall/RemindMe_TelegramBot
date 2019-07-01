@@ -4,22 +4,18 @@
  * not implemented yet.
  * There are still a lot to do but it works...)
  * I am  waiting for all your comments and suggestions!
+ * Btw, yeah, bot UI sucks
  */
-
- var emodji = {
-     check_box: `\xE2\x9C\x85`
-    }
-
 
 var fs = require("fs");
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
-const TOKEN = require('./bot_token.json')['token']
+const TOKEN = require('./config/bot_token.json')['token']
 // const request = require('request') @todo
 
 var TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(TOKEN, { polling: true, timeout: 500 });
 
-rawdata = fs.readFileSync('users.json'); //@todo fix this
+rawdata = fs.readFileSync('./config/users.json'); //@todo fix this
 var USERS = JSON.parse(rawdata ,function(key, value) {
     if (key == "date") {
         return new Date(value)
@@ -29,7 +25,7 @@ var USERS = JSON.parse(rawdata ,function(key, value) {
 })
 
 
-rawdata = fs.readFileSync('notes.json');
+rawdata = fs.readFileSync('./config/notes.json');
 var NOTES = JSON.parse(rawdata ,function(key, value) {
     if (key == "date") {
         return new Date(value)
@@ -106,12 +102,12 @@ function checkUserData(user) {
         bot.sendMessage(user.id, greeting_msg)
     }
     let user_data = JSON.stringify(USERS, null, '   ')
-    fs.writeFileSync('users.json', user_data)
+    fs.writeFileSync('./config/users.json', user_data)
 }
 
 function saveNotes() {
     let notes_data = JSON.stringify(NOTES, null, '   ')
-    fs.writeFileSync('notes.json', notes_data)
+    fs.writeFileSync('./config/notes.json', notes_data)
 }
 
 var keyboard_anwers = {
