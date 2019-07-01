@@ -1,3 +1,16 @@
+/**
+ * WARNING!! Your eyes may bleed because of some shitty code
+ * Some features like checking and editing all your notes are
+ * not implemented yet.
+ * There are still a lot to do but it works...)
+ * I am  waiting for all your comments and suggestions!
+ */
+
+ var emodji = {
+     check_box: `\xE2\x9C\x85`
+    }
+
+
 var fs = require("fs");
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 const TOKEN = require('./bot_token.json')['token']
@@ -16,13 +29,45 @@ var USERS = JSON.parse(rawdata ,function(key, value) {
 })
 
 
-var NOTES = require('./notes.json')
-const default_note = {
+rawdata = fs.readFileSync('notes.json');
+var NOTES = JSON.parse(rawdata ,function(key, value) {
+    if (key == "date") {
+        return new Date(value)
+    } else {
+        return value
+    }
+})
+
+var default_note = {
     text: '',
-    date: 0,
+    date: new Date(),
     time: {h: 8, m: 0},
     user_id: 0
 }
+
+setInterval(function() {
+    default_note.date = new Date()
+}, 1,44e+7)
+
+function checkNotes() {
+    let curr_date = new Date()
+    for (let i in NOTES) {
+        let curr_note_date = NOTES[i].date
+        if (curr_note_date.getUTCDate() == curr_date.getUTCDate() && 
+            curr_note_date.getUTCHours() == curr_date.getUTCHours() && 
+            curr_note_date.getUTCMinutes() == curr_date.getUTCMinutes()) {
+                bot.sendMessage(NOTES[i].user_id, `Напоминание!!\n\n \n\n${NOTES[i].text}\n`)
+                console.log("Send message when dates are equal")
+                console.log("Curr date -- " + curr_date)
+                console.log("Curr note date -- " + curr_note_date)
+                NOTES.splice(i, 1)
+                saveNotes()
+            }
+            // console.log(NOTES[i] + '\n\n')
+    }
+}
+
+setInterval(checkNotes, 55000)
 
 function getUserBufferNote(id) {
     for (let i in USERS) {
@@ -50,6 +95,7 @@ function getUserById(id) {
             return USERS[i]
         }
     }
+    return null
 }
 function checkUserData(user) {
     user.buffer_note.user_id = user.id
@@ -142,14 +188,14 @@ function note_menu_edit_msg(chat_id, message_id) {
 }
 
 function time_menu(chat_id, message_id) {
-    let user = getUserById(chat_id)
+    let user = getUserById(chat_id) //@todo separate in 2 funcs
     let reply_markup = getTimeMarkup(user.buffer_note.time.h, user.buffer_note.time.m)
     let opts = {
         chat_id: chat_id,
         message_id: message_id,
         reply_markup: reply_markup
     }
-    text = "Выберете время"
+    let text = 'Выберете время\n\nИли введите\n\n /h "Час"\n/m "Минуты"'
     bot.editMessageText(text, opts)
 }
 
@@ -157,21 +203,53 @@ bot.onText(/start/, function (msg, match) {
     onStart(msg.from);
 });
 
+bot.onText(/\/h (.+)/, function(msg, match) {
+    const hours = Number(match[1]);
+    let user = getUserById(msg.chat.id) //@todo separate in 2 funcs
+    user.buffer_note.time.h = hours
+    user.buffer_note.time.h = checkHours(user.buffer_note.time.h)
+    let reply_markup = getTimeMarkup(user.buffer_note.time.h, user.buffer_note.time.m)
+    let opts = {
+        reply_markup: reply_markup
+    }
+    let text = 'Выберете время\n\nИли введите\n\n /h "Час"\n/m "Минуты"'
+    bot.sendMessage(msg.chat.id, text, opts)
+    checkUserData(user)
+  });
+
+bot.onText(/\/m (.+)/, function(msg, match) {
+    const minutes = Number(match[1]);
+    let user = getUserById(msg.chat.id) //@todo separate in 2 funcs
+    user.buffer_note.time.m = minutes
+    user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
+    let reply_markup = getTimeMarkup( user.buffer_note.time.h, user.buffer_note.time.m)
+    let opts = {
+        reply_markup: reply_markup
+    }
+    let text = 'Выберете время\n\nИли введите\n\n /h "Час"\n/m "Минуты"'
+    bot.sendMessage(msg.chat.id, text, opts)
+    checkUserData(user)
+  });
+
 bot.on('message', function(msg){
     let user = getUserById(msg.chat.id)
-    if (user.state == keyboard_anwers.Изменить_текст) {
-        user.buffer_note.text = msg.text
-        user.state = 0
-        var opts = {
-            reply_markup: create_note_markup
+    if (user == null) return
+    if ('state' in user) {
+
+        if (user.state == keyboard_anwers.Изменить_текст) {
+            user.buffer_note.text = msg.text
+            user.state = 0
+            var opts = {
+                reply_markup: create_note_markup
+            }
+            checkUserData(user)
+            note_menu_new_msg(user.id)
         }
-        checkUserData(user)
-        note_menu_new_msg(user.id)
     }
-});
+    });
+    
 
-
-var HttpClient = function () {
+    var HttpClient = function () {
     this.get = function (aUrl, aCallback) {
         var anHttpRequest = new XMLHttpRequest();
         anHttpRequest.onreadystatechange = function () {
@@ -206,7 +284,7 @@ bot.onText(/cat/, function (msg, match) {
 
 const on_start_markup = JSON.stringify({
     inline_keyboard: [
-        [{ text: 'Создать заметку', callback_data: keyboard_anwers.Создать_заметку }],
+        [{ text: 'Создать заметку\xE2\x9C\x85', callback_data: keyboard_anwers.Создать_заметку }],
         [{ text: 'Получить картинку котика)', callback_data: keyboard_anwers.Получить_котика }]
     ]
 })
@@ -241,6 +319,24 @@ function getTimeMarkup(h, m) {
         ]
     }
     return JSON.stringify(reply_markup)
+}
+
+function checkMinutes(min) {
+    if (min > 59) {
+        min = 0
+    } else if (min < 0) {
+        min = 59
+    }
+    return min
+}
+
+function checkHours(hour) {
+    if (hour > 23) {
+        hour = 0
+    } else if (hour < 0) {
+        hour = 23
+    }
+    return hour
 }
 
 
@@ -295,36 +391,37 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     } else if (action == keyboard_anwers["Час_+"]) {
         let user = getUserById(msg.chat.id)
         user.buffer_note.time.h += 1
-        user.buffer_note.time.h %= 24
+        user.buffer_note.time.h = checkHours(user.buffer_note.time.h)
+        checkUserData(user)
         time_menu(msg.chat.id, msg.message_id)
     } else if (action == keyboard_anwers["Час_-"]) {
         let user = getUserById(msg.chat.id)
         user.buffer_note.time.h -= 1
-        if (user.buffer_note.time.h < 0) {
-            user.buffer_note.time.h = 23
-        }
+        user.buffer_note.time.h = checkHours(user.buffer_note.time.h)
+        checkUserData(user)
         time_menu(msg.chat.id, msg.message_id)
     } else if (action == keyboard_anwers["Минуты_+"]) {
         let user = getUserById(msg.chat.id)
         user.buffer_note.time.m += 1
-        user.buffer_note.time.m %= 60
+        user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
+        checkUserData(user)
         time_menu(msg.chat.id, msg.message_id)
     } else if (action == keyboard_anwers["Минуты_-"]) {
         let user = getUserById(msg.chat.id)
         user.buffer_note.time.m -= 1
-        if (user.buffer_note.time.m < 0) {
-            user.buffer_note.time.m = 59
-        }
+        user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
+        checkUserData(user)
         time_menu(msg.chat.id, msg.message_id)
     } else if (action == keyboard_anwers.Добавить_заметку) {
         let user = getUserById(msg.chat.id)
         user.buffer_note.date.setHours(user.buffer_note.time.h)
         user.buffer_note.date.setMinutes(user.buffer_note.time.m)
-        user.buffer_note.date = user.buffer_note.date.toUTCString()
+        // user.buffer_note.date = user.buffer_note.date.toUTCString()
         NOTES.push(user.buffer_note)
-        checkUserData(user)
         saveNotes()
         user.buffer_note = default_note
+        checkUserData(user)
+        onStartMsg(msg.chat.id)
     }
         
 });
