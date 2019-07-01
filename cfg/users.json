@@ -1,0 +1,56 @@
+[
+   {
+      "id": 420449863,
+      "is_bot": false,
+      "first_name": "Anastasia",
+      "last_name": "Shchedrova",
+      "username": "Anestezii_A",
+      "language_code": "ru",
+      "cat_count": 2
+   },
+   {
+      "id": 335283892,
+      "is_bot": false,
+      "first_name": "Droptheweapon",
+      "username": "Droptheweapon",
+      "language_code": "ru",
+      "cat_count": 5
+   },
+   {
+      "id": 379946182,
+      "is_bot": false,
+      "first_name": "Andrii",
+      "last_name": "Koval",
+      "username": "ZioSmith",
+      "language_code": "en",
+      "buffer_note": {
+         "text": "",
+         "date": "2019-07-01T18:29:26.276Z",
+         "time": {
+            "h": 8,
+            "m": 0
+         },
+         "user_id": 379946182
+      },
+      "cat_count": 49,
+      "state": 0
+   },
+   {
+      "id": 402359805,
+      "is_bot": false,
+      "first_name": "Yaroslaw",
+      "last_name": "Klymenko",
+      "username": "Meow_meow_meov",
+      "language_code": "ru",
+      "buffer_note": {
+         "text": "",
+         "date": "1970-01-01T00:00:00.000Z",
+         "time": {
+            "h": 8,
+            "m": 0
+         },
+         "user_id": 402359805
+      },
+      "cat_count": 2
+   }
+]
