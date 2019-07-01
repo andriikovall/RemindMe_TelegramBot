@@ -7,11 +7,6 @@
  * Btw, yeah, bot UI sucks
  */
 
- var emodji = {
-     check_box: `\xE2\x9C\x85`
-    }
-
-
 var fs = require("fs");
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 const TOKEN = require('./config/bot_token.json')['token']
