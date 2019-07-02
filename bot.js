@@ -7,7 +7,7 @@
  * Btw, yeah, bot UI sucks
  */
 
-const config_dir = '../config/'
+const config_dir = `${__dirname}/../config/`
 const bot_token_file = 'bot_token.json'
 const users_file = 'users.json'
 const notes_file = 'notes.json'
@@ -47,12 +47,6 @@ var default_note = {
     time: {h: start_date.getHours(), m: start_date.getMinutes()},
     user_id: 0
 }
-
-for (let i in USERS) {
-    USERS[i].buffer_note = default_note
-    checkUserData(USERS[i])
-}
-
 setInterval(function() {
     var curr_date = new Date()
     default_note.date = curr_date
