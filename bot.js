@@ -7,15 +7,20 @@
  * Btw, yeah, bot UI sucks
  */
 
+const config_dir = '../config/'
+const bot_token_file = 'bot_token.json'
+const users_file = 'users.json'
+const notes_file = 'notes.json'
+
 var fs = require("fs");
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
-const TOKEN = require('./cfg/bot_token.json')['token']
+const TOKEN = require(config_dir + bot_token_file)['token']
 // const request = require('request') @todo
 
 var TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(TOKEN, { polling: true, timeout: 500 });
 
-rawdata = fs.readFileSync('./cfg/users.json'); //@todo fix this
+rawdata = fs.readFileSync(config_dir + users_file); //@todo fix this
 var USERS = JSON.parse(rawdata ,function(key, value) {
     if (key == "date") {
         return new Date(value)
@@ -25,7 +30,7 @@ var USERS = JSON.parse(rawdata ,function(key, value) {
 })
 
 
-rawdata = fs.readFileSync('./cfg/notes.json');
+rawdata = fs.readFileSync(config_dir + notes_file);
 var NOTES = JSON.parse(rawdata ,function(key, value) {
     if (key == "date") {
         return new Date(value)
@@ -34,15 +39,25 @@ var NOTES = JSON.parse(rawdata ,function(key, value) {
     }
 })
 
+var start_date = new Date()
+
 var default_note = {
     text: '',
-    date: new Date(),
-    time: {h: 8, m: 0},
+    date: start_date,
+    time: {h: start_date.getHours(), m: start_date.getMinutes()},
     user_id: 0
 }
 
+for (let i in USERS) {
+    USERS[i].buffer_note = default_note
+    checkUserData(USERS[i])
+}
+
 setInterval(function() {
-    default_note.date = new Date()
+    var curr_date = new Date()
+    default_note.date = curr_date
+    default_note.time.h = curr_date.getHours()
+    default_note.time.m = curr_date.getMinutes()
 }, 1,44e+7)
 
 function checkNotes() {
@@ -59,7 +74,9 @@ function checkNotes() {
                 NOTES.splice(i, 1)
                 saveNotes()
             }
-            // console.log(NOTES[i] + '\n\n')
+            console.log("curr date" + curr_date)
+            console.log('curr_note_date' + curr_note_date)
+            console.log('\n')
     }
 }
 
@@ -102,12 +119,12 @@ function checkUserData(user) {
         bot.sendMessage(user.id, greeting_msg)
     }
     let user_data = JSON.stringify(USERS, null, '   ')
-    fs.writeFileSync('./cfg/users.json', user_data)
+    fs.writeFileSync(config_dir + users_file, user_data)
 }
 
 function saveNotes() {
     let notes_data = JSON.stringify(NOTES, null, '   ')
-    fs.writeFileSync('./cfg/notes.json', notes_data)
+    fs.writeFileSync(config_dir + notes_file, notes_data)
 }
 
 var keyboard_anwers = {
@@ -280,7 +297,7 @@ bot.onText(/cat/, function (msg, match) {
 
 const on_start_markup = JSON.stringify({
     inline_keyboard: [
-        [{ text: 'Создать заметку\xE2\x9C\x85', callback_data: keyboard_anwers.Создать_заметку }],
+        [{ text: 'Создать заметку', callback_data: keyboard_anwers.Создать_заметку }],
         [{ text: 'Получить картинку котика)', callback_data: keyboard_anwers.Получить_котика }]
     ]
 })
