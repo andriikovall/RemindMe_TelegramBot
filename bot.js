@@ -12,6 +12,8 @@ const bot_token_file = 'bot_token.json'
 const users_file = 'users.json'
 const notes_file = 'notes.json'
 
+var request = require("request");
+
 var fs = require("fs");
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 const TOKEN = require(config_dir + bot_token_file)['token']
@@ -139,7 +141,9 @@ var keyboard_anwers = {
     "Час_-": 15,
     "Минуты_+": 16,
     "Минуты_-": 17, 
-    "Добавить_заметку": 18
+    "Добавить_заметку": 18,
+    "Отправить_геолокацию": 19,
+    "Отправить_время":20
 }
 
 
@@ -241,6 +245,12 @@ bot.onText(/\/m (.+)/, function(msg, match) {
 bot.on('message', function(msg){
     let user = getUserById(msg.chat.id)
     if (user == null) return
+    if (msg.text == 'Передать точное время') {
+        user.state = keyboard_anwers.Отправить_время
+        checkUserData(user)
+        var  reply = 'Отправьте свое точное время в формате \'чч:мм\' или \'чч-мм\' или \'чч мм\''
+        bot.sendMessage(user.id, reply)
+    }
     if ('state' in user) {
 
         if (user.state == keyboard_anwers.Изменить_текст) {
@@ -251,12 +261,36 @@ bot.on('message', function(msg){
             }
             checkUserData(user)
             note_menu_new_msg(user.id)
+        } else if (user.state = keyboard_anwers.Отправить_время) {
+            let time = msg.text // @todo fix
+            var time_arr = []
+            if (time[2] == '-') {
+                time_arr = time.split('-')
+            }else if (time[2] == ':') {
+                time_arr = time.split(':')
+            }else if (time[2] == ' ') {
+                time_arr = time.split(' ')
+            }
+            var h = time_arr[0]
+            var m = time_arr[1]
+            var user_mins = h * 60 + m
+            var server_mins = function() {
+                var curr_date = new Date
+                var minutes = curr_date.getMinutes()
+                var hours = curr_date.getHours()
+                return hours * 60 + minutes
+            }
+            user['time_offset'] = ((user_mins + 10) / server_mins) % 60
+            checkUserData(user)
+            var reply = 'Спасибо, теперь можете начать пользоваться ботом!'
+            bot.sendMessage(user.id, reply)
+            note_menu_new_msg(user.id)
         }
     }
-    });
+});
     
 
-    var HttpClient = function () {
+var HttpClient = function () {
     this.get = function (aUrl, aCallback) {
         var anHttpRequest = new XMLHttpRequest();
         anHttpRequest.onreadystatechange = function () {
@@ -289,10 +323,26 @@ bot.onText(/cat/, function (msg, match) {
     sendCat(msg.chat.id)
 });
 
+bot.onText(/timestamp/, function (msg, match) {
+    var opts = {
+        "reply_markup": {
+            one_time_keyboard: true,
+            resize_keyboard: true,
+            keyboard: [[{
+                text: "Передать геолокацию",
+                request_location: true
+            }], [{text: "Передать точное время"}]]
+        }
+    };
+    var text = "Для коректной работы напоминаний и синхронизацией с сервером необходимо получить Ваш часовой пояс.\n\
+    Вы можете передать нам свою геолокацию для автоматического определения часового пояса, а можете отправить свое точное время в даный момент"
+    bot.sendMessage(msg.chat.id, text, opts)
+});
+
 const on_start_markup = JSON.stringify({
     inline_keyboard: [
-        [{ text: 'Создать заметку', callback_data: keyboard_anwers.Создать_заметку }],
-        [{ text: 'Получить картинку котика)', callback_data: keyboard_anwers.Получить_котика }]
+        [{ text: 'Создать заметку', callback_data: keyboard_anwers.Создать_заметку, request_location: true }],
+        [{ text: 'Получить картинку котика)', callback_data: keyboard_anwers.Получить_котика, request_location: true }]
     ]
 })
 
@@ -345,6 +395,16 @@ function checkHours(hour) {
     }
     return hour
 }
+
+bot.once('location', function(msg) {
+    var longitude = msg.location.longitude
+    var latitude = msg.location.latitude
+    bot.sendMessage(msg.chat.id, "We will deliver your order to " + [msg.location.longitude,msg.location.latitude].join(";"))
+})
+
+bot.on('polling_error', function(err) {
+    console.log(err)
+})
 
 
 bot.on('callback_query', function onCallbackQuery(callbackQuery) {
@@ -429,6 +489,17 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         user.buffer_note = default_note
         checkUserData(user)
         onStartMsg(msg.chat.id)
+    } else if (action == keyboard_anwers.Отправить_геолокацию) {
+        // var client = new HttpClient()
+        // client.get()
+        var user = getUserById(msg.chat.id)
+        if (user == null) {
+            console.log("User is null: error")
+            return
+        } else {
+            user.state = keyboard_anwers.Отправить_геолокацию
+            checkUserData(user)
+        }
     }
         
 });
