@@ -199,14 +199,14 @@ function locationRequest(user_id, lat, long) {
 
 function onStart(user) {
     user.buffer_note = default_note
+    user.buffer_note.user_id = user.id
     user.state = 0
-    checkUserData(user)
     if ('minute_offset' in user) {
-        checkUserData(user)
         onStartMsg(user.id)
     } else {
         getUserTimeOffset(user.id)
     }
+    checkUserData(user)
 }
 
 
@@ -449,7 +449,6 @@ bot.on('location', function(msg) {
     console.log(longitude)
     console.groupEnd()
     locationRequest(msg.chat.id, latitude, longitude)
-    
 })
 
 bot.on('polling_error', function(err) {
@@ -461,6 +460,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     const action = callbackQuery.data;
     const msg = callbackQuery.message;
     let text;
+    let query_reply_text = ""
 
     if (action == keyboard_anwers.Создать_заметку) {
         note_menu_new_msg(msg.chat.id)
@@ -532,13 +532,13 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     } else if (action == keyboard_anwers.Добавить_заметку) {
         let user = getUserById(msg.chat.id)
         user.buffer_note.date.setHours(user.buffer_note.time.h)
-        user.buffer_note.date.setMinutes(user.buffer_note.time.m + user.minute_offset) 
-        // user.buffer_note.date = user.buffer_note.date.toUTCString()
+        user.buffer_note.date.setMinutes(user.buffer_note.time.m - user.minute_offset) 
         NOTES.push(user.buffer_note)
         saveNotes()
         user.buffer_note = default_note
         checkUserData(user)
         onStartMsg(msg.chat.id)
+        query_reply_text = "Заметка создана!"
     } else if (action == keyboard_anwers.Отправить_геолокацию) {
         var user = getUserById(msg.chat.id)
         if (user == null) {
@@ -549,9 +549,11 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
             checkUserData(user)
         }
     }
+
+    bot.answerCallbackQuery(callbackQuery.id, query_reply_text)
         
 });
-    
+
     
 
 
