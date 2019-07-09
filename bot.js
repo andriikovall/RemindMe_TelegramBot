@@ -12,7 +12,9 @@ const bot_token_file = 'bot_token.json'
 const users_file = 'users.json'
 const notes_file = 'notes.json'
 
-var request = require("request");
+var requirejs = require('requirejs');
+var request = require('request');
+
 
 var fs = require("fs");
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
@@ -259,9 +261,12 @@ function time_menu(chat_id, message_id) {
     bot.editMessageText(text, opts)
 }
 
+
 bot.onText(/start/, function (msg, match) {
     onStart(msg.from);
 });
+
+// bot.leaveChat()
 
 bot.onText(/\/h (.+)/, function(msg, match) {
     const hours = Number(match[1]);
@@ -401,7 +406,7 @@ const create_note_markup = JSON.stringify({
 
 const change_date_markup = JSON.stringify({
     inline_keyboard: [
-        [{ text: 'Сегодня', callback_data: keyboard_anwers.Сегодня }],
+        [{ text: 'Сегодня', callback_data: keyboard_anwers.Сегодня }],  
         [{ text: 'Завтра', callback_data: keyboard_anwers.Завтра }, { text: 'Послезавтра', callback_data: keyboard_anwers.Послезавтра }],
         [{ text: 'Другая дата', callback_data: keyboard_anwers.Другая_дата }], 
         [{ text: 'Назад', callback_data: keyboard_anwers.Назад_изменение_даты }]
@@ -553,6 +558,70 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     bot.answerCallbackQuery(callbackQuery.id, query_reply_text)
         
 });
+
+var calendar = new Calendar()
+
+var options = {
+    reply_markup: getMounthMarkup(2059, 5)
+};
+
+bot.sendMessage(379946182, "test calendar", options)
+
+function Calendar() {
+    this.dayNames   = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+    this.monthNames = [
+        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+    ]
+}
+    function getMounthMarkup(year, mounth) {
+        var inline_keyboard = []
+        var days_btns = []
+        var mounth_btn = [{text: calendar.monthNames[mounth] + " " + year, callback_data: 0}]
+        inline_keyboard.push(mounth_btn)
+        calendar.dayNames.forEach(element => {
+            days_btns.push({text: element, callback_data: 0})
+        });
+        inline_keyboard.push(days_btns)
+        var date = new Date(year, mounth)
+        var day = date.getDay()
+        var array_of_days = new Array(6)
+        for (var i = 0; i < 6; i++) {
+            array_of_days[i] = new Array(7)
+            for (let j = 0; j < 7; j++) {
+                array_of_days[i][j] = {text: ' ', callback_data: 0}
+            }
+        }
+        i = getDayNumFromMonday(day)
+        let day_counter = 1
+        array_of_days[0][i].text = '1'
+        array_of_days.forEach(element => {
+            for (;i < 7; i++) {
+                date.setDate(day_counter)
+                if (date.getMonth() != mounth) {
+                    break
+                }
+                element[i].text = (day_counter++).toString()
+            }
+            i = 0
+            inline_keyboard.push(element)
+        })
+        console.log(array_of_days)
+        var reply_markup = {}
+        reply_markup.inline_keyboard = inline_keyboard
+        return JSON.stringify(reply_markup)
+    }
+
+    
+
+
+function getDayNumFromMonday(day_number) {
+    if (day_number == 0) {
+        return 6
+    } else {
+        return day_number - 1
+    }
+}
 
     
 
