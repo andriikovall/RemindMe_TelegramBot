@@ -60,9 +60,9 @@ function checkNotes() {
     let curr_date = new Date()
     for (let i in NOTES) {
         let curr_note_date = NOTES[i].date
-        if (curr_note_date.getUTCDate() == curr_date.getUTCDate() && 
-            curr_note_date.getUTCHours() == curr_date.getUTCHours() && 
-            curr_note_date.getUTCMinutes() == curr_date.getUTCMinutes()) {
+        if (curr_note_date.getDate() == curr_date.getDate() && 
+            curr_note_date.getHours() == curr_date.getHours() && 
+            curr_note_date.getMinutes() == curr_date.getMinutes()) {
                 bot.sendMessage(NOTES[i].user_id, `Напоминание!!\n\n \n\n${NOTES[i].text}\n`)
                 console.log("Send message when dates are equal")
                 console.log("Curr date -- " + curr_date)
@@ -111,7 +111,7 @@ function checkUserData(user) {
     if (!usersContain(user)) {
         user.cat_count = 0
         USERS.push(user)
-        const greeting_msg = 'Привет, это бот для создание напоминалок! Можеш начинать им пользоваться)'
+        const greeting_msg = 'Привет, это бот для создание напоминалок!'
         bot.sendMessage(user.id, greeting_msg)
     }
     let user_data = JSON.stringify(USERS, null, '   ')
@@ -155,11 +155,60 @@ function onStartMsg(id) {
     bot.sendMessage(id, "Выбери опцию", options);
 }
 
+function setUserMinuteOffset(user, user_mins) {
+    var server_mins = function() {
+        var curr_date = new Date
+        var minutes = curr_date.getMinutes()
+        var hours = curr_date.getHours()
+        return hours * 60 + minutes
+    }
+    console.log(server_mins())
+    console.log(user_mins)
+    user['minute_offset'] = user_mins - server_mins()
+    user.state = 0
+    checkUserData(user)
+    var reply = 'Спасибо, теперь можете начать пользоваться ботом!'
+    bot.sendMessage(user.id, reply)
+    note_menu_new_msg(user.id)
+}
+
+function locationRequest(user_id, lat, long) {
+    var user = getUserById(user_id)
+    if (user == null) {
+        console.error('user is null error')
+        return
+    }
+    request({
+        uri: "http://api.geonames.org/timezoneJSON",
+        method: "POST",
+        form: {
+            lat: lat, 
+            lng: long,
+            username: 'ZioVio'
+        }
+    }, function(error, response, body) {
+    if (typeof response !== 'undefined')  {
+        if (response.body.status === undefined) {
+            //@todo handle errors
+            let user_date = new Date(JSON.parse(response.body).time)
+            setUserMinuteOffset(user, user_date.getHours() * 60 + user_date.getMinutes())
+        }
+    }
+    })
+}
+
 function onStart(user) {
     user.buffer_note = default_note
+    user.state = 0
     checkUserData(user)
-    onStartMsg(user.id)
+    if ('minute_offset' in user) {
+        checkUserData(user)
+        onStartMsg(user.id)
+    } else {
+        getUserTimeOffset(user.id)
+    }
 }
+
 
 function noteToStr(note) {
     let date_str = note.date.toLocaleDateString()
@@ -250,6 +299,7 @@ bot.on('message', function(msg){
         checkUserData(user)
         var  reply = 'Отправьте свое точное время в формате \'чч:мм\' или \'чч-мм\' или \'чч мм\''
         bot.sendMessage(user.id, reply)
+        return;
     }
     if ('state' in user) {
 
@@ -261,7 +311,7 @@ bot.on('message', function(msg){
             }
             checkUserData(user)
             note_menu_new_msg(user.id)
-        } else if (user.state = keyboard_anwers.Отправить_время) {
+        } else if (user.state == keyboard_anwers.Отправить_время) {
             let time = msg.text // @todo fix
             var time_arr = []
             if (time[2] == '-') {
@@ -273,18 +323,8 @@ bot.on('message', function(msg){
             }
             var h = time_arr[0]
             var m = time_arr[1]
-            var user_mins = h * 60 + m
-            var server_mins = function() {
-                var curr_date = new Date
-                var minutes = curr_date.getMinutes()
-                var hours = curr_date.getHours()
-                return hours * 60 + minutes
-            }
-            user['time_offset'] = ((user_mins + 10) / server_mins) % 60
-            checkUserData(user)
-            var reply = 'Спасибо, теперь можете начать пользоваться ботом!'
-            bot.sendMessage(user.id, reply)
-            note_menu_new_msg(user.id)
+            var user_mins = Number(h) * 60 + Number(m)
+            setUserMinuteOffset(user, user_mins)
         }
     }
 });
@@ -323,7 +363,7 @@ bot.onText(/cat/, function (msg, match) {
     sendCat(msg.chat.id)
 });
 
-bot.onText(/timestamp/, function (msg, match) {
+function getUserTimeOffset(chat_id) {
     var opts = {
         "reply_markup": {
             one_time_keyboard: true,
@@ -335,8 +375,12 @@ bot.onText(/timestamp/, function (msg, match) {
         }
     };
     var text = "Для коректной работы напоминаний и синхронизацией с сервером необходимо получить Ваш часовой пояс.\n\
-    Вы можете передать нам свою геолокацию для автоматического определения часового пояса, а можете отправить свое точное время в даный момент"
-    bot.sendMessage(msg.chat.id, text, opts)
+Вы можете передать нам свою геолокацию для автоматического определения часового пояса, а можете отправить свое точное время в даный момент"
+    bot.sendMessage(chat_id, text, opts)
+}
+
+bot.onText(/timestamp/, function (msg, match) {
+    getUserTimeOffset(msg.chat.id)
 });
 
 const on_start_markup = JSON.stringify({
@@ -396,10 +440,16 @@ function checkHours(hour) {
     return hour
 }
 
-bot.once('location', function(msg) {
+bot.on('location', function(msg) {
     var longitude = msg.location.longitude
     var latitude = msg.location.latitude
-    bot.sendMessage(msg.chat.id, "We will deliver your order to " + [msg.location.longitude,msg.location.latitude].join(";"))
+    console.group('Location')
+    console.log("Recieved location")
+    console.log(latitude)
+    console.log(longitude)
+    console.groupEnd()
+    locationRequest(msg.chat.id, latitude, longitude)
+    
 })
 
 bot.on('polling_error', function(err) {
@@ -482,7 +532,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     } else if (action == keyboard_anwers.Добавить_заметку) {
         let user = getUserById(msg.chat.id)
         user.buffer_note.date.setHours(user.buffer_note.time.h)
-        user.buffer_note.date.setMinutes(user.buffer_note.time.m)
+        user.buffer_note.date.setMinutes(user.buffer_note.time.m + user.minute_offset) 
         // user.buffer_note.date = user.buffer_note.date.toUTCString()
         NOTES.push(user.buffer_note)
         saveNotes()
@@ -490,11 +540,9 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         checkUserData(user)
         onStartMsg(msg.chat.id)
     } else if (action == keyboard_anwers.Отправить_геолокацию) {
-        // var client = new HttpClient()
-        // client.get()
         var user = getUserById(msg.chat.id)
         if (user == null) {
-            console.log("User is null: error")
+            console.error("User is null: error")
             return
         } else {
             user.state = keyboard_anwers.Отправить_геолокацию
