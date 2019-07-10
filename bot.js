@@ -73,8 +73,8 @@ function checkNotes() {
                 NOTES.splice(i, 1)
                 saveNotes()
             }
-            console.log("curr date" + curr_date)
-            console.log('curr_note_date' + curr_note_date)
+            console.log("curr date  " + curr_date)
+            console.log('curr_note_date  ' + curr_note_date)
             console.log('\n')
     }
 }
@@ -148,7 +148,8 @@ var keyboard_anwers = {
     "Отправить_геолокацию": 19,
     "Отправить_время":20, 
     "Календарь_вправо": 21,
-    "Календарь_влево": 22 
+    "Календарь_влево": 22,
+    "Поделится_своим_временем": 23
 }
 
 
@@ -302,6 +303,7 @@ function changeUserBufferMinutes(user_id, minutes) {
     let user = getUserById(user_id) 
     user.buffer_note.time.m = minutes
     user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
+    checkUserData(user)
 }
 
 function changeUserBufferHours(user_id,   hours) {
@@ -311,25 +313,31 @@ function changeUserBufferHours(user_id,   hours) {
     let user = getUserById(user_id) 
     user.buffer_note.time.h = hours
     user.buffer_note.time.h = checkHours(user.buffer_note.time.h)
+    checkUserData(user)
 }
 
-function onTimeChange(user) {
-    checkUserData(user)
+function onTimeChange(user_id) {
+    let user = getUserById(user_id)
+    if (user == null) {
+        console.error('user is null: error')
+        return
+    }
     let reply_markup = getTimeMarkup(user.buffer_note.time.h, user.buffer_note.time.m)
     let opts = {
         reply_markup: reply_markup
     }
-    let text = 'Нажмите на значение, что бы его изменить'
+    let text = 'Нажмите на значение, что бы его изменить'  + emodji.finger_down
     bot.sendMessage(user.id, text, opts)
+    user.state = 0
     checkUserData(user)
 }
-bot.on('message', function(msg){
+bot.on('message', function(msg) {
     let user = getUserById(msg.chat.id)
     if (user == null) return
     if (msg.text == 'Передать точное время') {
         user.state = keyboard_anwers.Отправить_время
         checkUserData(user)
-        var  reply = 'Отправьте свое точное время в формате \'чч:мм\' или \'чч-мм\' или \'чч мм\''
+        var  reply = 'Отправьте свое точное время в формате \'чч:мм\' или \'чч-мм\' или \'чч мм\' в 24-часовом формате'
         bot.sendMessage(user.id, reply)
         return;
     }
@@ -370,10 +378,10 @@ bot.on('message', function(msg){
             setUserMinuteOffset(user, user_mins)
         } else if (user.state == keyboard_anwers.Изменить_минуты) {
             changeUserBufferMinutes(msg.chat.id, Number(msg.text))
-            onTimeChange(user)
+            onTimeChange(msg.chat.id)
         } else if (user.state == keyboard_anwers.Изменить_часы) {
             changeUserBufferHours  (msg.chat.id, Number(msg.text))
-            onTimeChange(user)
+            onTimeChange(msg.chat.id)
         }
     }
 });
@@ -425,7 +433,15 @@ function getUserTimeOffset(chat_id) {
     };
     var text = "Для коректной работы напоминаний и синхронизацией с сервером необходимо получить Ваш часовой пояс.\n\n\
 Вы можете передать нам свою геолокацию для автоматического определения часового пояса, а можете отправить свое точное время в даный момент"
+    let user = getUserById(chat_id)
+    if (user == null) {
+        console.error('user is null: error')
+        return
+    }
+    user['state'] = keyboard_anwers.Поделится_своим_временем
+    checkUserData(user)
     bot.sendMessage(chat_id, text, opts)
+    
 }
 
 bot.onText(/timestamp/, function (msg, match) {
@@ -444,7 +460,7 @@ const create_note_markup = JSON.stringify({
     inline_keyboard: [
         [{ text: 'Изменить дату ' + emodji.calendar, callback_data: keyboard_anwers.Изменить_дату }, { text: 'Изменить время ' + emodji.clock, callback_data: keyboard_anwers.Изменить_время }],
         [{ text: 'Изменить текст ' + emodji.writting_hand, callback_data: keyboard_anwers.Изменить_текст }],
-        [{ text: 'Назад', callback_data: keyboard_anwers.Назад_создание_заметки }, { text: 'Добавить заметку' + emodji.check, callback_data: keyboard_anwers.Добавить_заметку }]
+        [{ text: 'Назад', callback_data: keyboard_anwers.Назад_создание_заметки }, { text: 'Сохранить заметку' + emodji.check, callback_data: keyboard_anwers.Добавить_заметку }]
     ]
 })
 
@@ -463,7 +479,7 @@ function getTimeMarkup(h, m) {
     let reply_markup = {
         inline_keyboard: [
             [{ text: hours, callback_data: keyboard_anwers.Изменить_часы }, { text: minutes, callback_data: keyboard_anwers.Изменить_минуты }],
-            [{ text: 'Ок', callback_data: keyboard_anwers.Назад_изменение_даты }]
+            [{ text: 'Ок', callback_data: keyboard_anwers.Назад_изменение_время }]
         ]
     }
     return JSON.stringify(reply_markup)
@@ -495,7 +511,18 @@ bot.on('location', function(msg) {
     console.log(latitude)
     console.log(longitude)
     console.groupEnd()
+    let user = getUserById(msg.chat.id)
+    if (user == null) {
+        console.error('user is null: error')
+        return
+    }
+    if ('state' in user) {
+        if (user.state != keyboard_anwers.Поделится_своим_временем) {
+            return
+        }
+    }
     locationRequest(msg.chat.id, latitude, longitude)
+
 })
 
 bot.on('polling_error', function(err) {
@@ -509,6 +536,15 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     let text;
     let query_reply_text = ""
 
+    let user = getUserById(msg.chat.id)
+    if (user == null) {
+        console.error('user is null: error')
+        return
+    } 
+    if (user.state != 0) {
+        bot.answerCallbackQuery(callbackQuery.id, query_reply_text)
+        return
+    }
     if (action == keyboard_anwers.Создать_заметку) {
         note_menu_new_msg(msg.chat.id)
     } else if (action == keyboard_anwers.Получить_котика) {
@@ -524,29 +560,37 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         text = noteToStr(getUserBufferNote(msg.chat.id))
         bot.editMessageText(text,opts)
     } else if (action == keyboard_anwers.Назад_создание_заметки){
+        bot.deleteMessage(msg.chat.id, msg.message_id)
         onStartMsg(msg.chat.id)
-    } else if (action == keyboard_anwers.Назад_изменение_даты ){ 
-        note_menu_edit_msg(msg.chat.id, msg.message_id)
+    } else if (action == keyboard_anwers.Назад_изменение_даты ){
+        // let user = getUserById(msg.chat.id)
+        // if (user == null) {
+        //     console.error('user is null: error')
+        //     return
+        // } 
+        user.state = 0
+        checkUserData(user)
+        note_menu_edit_msg(msg.chat.id, msg.message_id) //@todo refactor -_-
     } else if (action == keyboard_anwers.Изменить_текст) {
-        let user = getUserById(msg.chat.id)
+        // let user = getUserById(msg.chat.id)
         user['state'] = keyboard_anwers.Изменить_текст
         text = "Введите текст для заметки"
         bot.sendMessage(msg.chat.id, text)
         checkUserData(user)
     } else if (action == keyboard_anwers.Сегодня) {
-        let user = getUserById(msg.chat.id)
+        // let user = getUserById(msg.chat.id)
         user.buffer_note.date = new Date()
         checkUserData(user)
         note_menu_edit_msg(msg.chat.id, msg.message_id)
     } else if (action == keyboard_anwers.Завтра) {
-        let user = getUserById(msg.chat.id)
+       // let user = getUserById(msg.chat.id)
         let date = new Date()
         date.setDate(date.getDate() + 1)
         user.buffer_note.date = date
         checkUserData(user)
         note_menu_edit_msg(msg.chat.id, msg.message_id)
     } else if (action == keyboard_anwers.Послезавтра) {
-        let user = getUserById(msg.chat.id)
+        //let user = getUserById(msg.chat.id)
         let date = new Date()
         date.setDate(date.getDate() + 2)
         user.buffer_note.date = date
@@ -554,49 +598,26 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         note_menu_edit_msg(msg.chat.id, msg.message_id)
     } else if (action == keyboard_anwers.Изменить_время) {
         time_menu(msg.chat.id, msg.message_id)
-    } else if (action == keyboard_anwers["Час_+"]) {
-        let user = getUserById(msg.chat.id)
-        user.buffer_note.time.h += 1
-        user.buffer_note.time.h = checkHours(user.buffer_note.time.h)
+    } else if (action == keyboard_anwers.Назад_изменение_время) {
+        user.state = 0
         checkUserData(user)
-        time_menu(msg.chat.id, msg.message_id)
-    } else if (action == keyboard_anwers["Час_-"]) {
-        let user = getUserById(msg.chat.id)
-        user.buffer_note.time.h -= 1
-        user.buffer_note.time.h = checkHours(user.buffer_note.time.h)
-        checkUserData(user)
-        time_menu(msg.chat.id, msg.message_id)
-    } else if (action == keyboard_anwers["Минуты_+"]) {
-        let user = getUserById(msg.chat.id)
-        user.buffer_note.time.m += 1
-        user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
-        checkUserData(user)
-        time_menu(msg.chat.id, msg.message_id)
-    } else if (action == keyboard_anwers["Минуты_-"]) {
-        let user = getUserById(msg.chat.id)
-        user.buffer_note.time.m -= 1
-        user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
-        checkUserData(user)
-        time_menu(msg.chat.id, msg.message_id)
-    } else if (action == keyboard_anwers.Добавить_заметку) {
-        let user = getUserById(msg.chat.id)
+        note_menu_edit_msg(msg.chat.id, msg.message_id)
+    } else if (action == keyboard_anwers.Добавить_заметку) { 
+    
+        //let user = getUserById(msg.chat.id)
         user.buffer_note.date.setHours(user.buffer_note.time.h)
         user.buffer_note.date.setMinutes(user.buffer_note.time.m - user.minute_offset) 
         NOTES.push(user.buffer_note)
         saveNotes()
         user.buffer_note = default_note
         checkUserData(user)
+        bot.deleteMessage(msg.chat.id, msg.message_id)
         onStartMsg(msg.chat.id)
         query_reply_text = "Заметка создана!"
     } else if (action == keyboard_anwers.Отправить_геолокацию) {
-        var user = getUserById(msg.chat.id)
-        if (user == null) {
-            console.error("User is null: error")
-            return
-        } else {
-            user.state = keyboard_anwers.Отправить_геолокацию
-            checkUserData(user)
-        }
+        //var user = getUserById(msg.chat.id)
+        user.state = keyboard_anwers.Отправить_геолокацию
+        checkUserData(user)
     } else if (action.indexOf('_') != -1) {
         var tmp_date = action.split('_')
         var year = tmp_date[0], month = tmp_date[1]
@@ -606,11 +627,8 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         var curr_date = new Date()
         CalendarMenuEditMsg(msg.chat.id, msg.message_id, curr_date.getFullYear(), curr_date.getMonth())
     } else if (action == keyboard_anwers.Изменить_минуты || action == keyboard_anwers.Изменить_часы) {
-        let user = getUserById(msg.chat.id)
-        if (user == null) {
-            console.error('user is null: error')
-            return
-        } if (action == keyboard_anwers.Изменить_минуты) {
+        //let user = getUserById(msg.chat.id)
+        if (action == keyboard_anwers.Изменить_минуты) {
             text = 'Введите минуты'
             user.state = keyboard_anwers.Изменить_минуты
         } else {
@@ -622,16 +640,11 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     } else {
         var btn_date = new Date(action)
         if (isValidDate(btn_date) && action != 0) {
-            var user = getUserById(msg.chat.id)
-            if (user == null) {
-                console.error("User is null: error")
-                return 
-            } else {
-                user.buffer_note.date.setFullYear(btn_date.getFullYear())
-                user.buffer_note.date.setMonth(btn_date.getMonth(), btn_date.getDate())
-                checkUserData(user)
-                note_menu_edit_msg(msg.chat.id, msg.message_id)
-            }
+
+            user.buffer_note.date.setFullYear(btn_date.getFullYear())
+            user.buffer_note.date.setMonth(btn_date.getMonth(), btn_date.getDate())
+            checkUserData(user)
+            note_menu_edit_msg(msg.chat.id, msg.message_id)
         }
     }
         
@@ -650,10 +663,6 @@ function CalendarMenuEditMsg(chat_id, message_id, year, month) {
     bot.editMessageText("*Выберите дату*", options)
 }
 
-
-
-
-// bot.sendMessage(379946182, "test calendar", options)
 
 var calendar = new Calendar()
 function Calendar() {
