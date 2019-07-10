@@ -139,15 +139,15 @@ var keyboard_anwers = {
     "Назад_изменение_даты": 11,
     "Назад_изменение_время": 12,
     "Созать_заметку": 13,
-    "Час_+": 14,
-    "Час_-": 15,
+    "Изменить_часы": 14,
+    "Изменить_минуты": 15,
     "Минуты_+": 16,
     "Минуты_-": 17, 
     "Добавить_заметку": 18,
     "Отправить_геолокацию": 19,
     "Отправить_время":20, 
     "Календарь_вправо": 21,
-    "Календарь_влево": 22
+    "Календарь_влево": 22 
 }
 
 
@@ -232,14 +232,21 @@ function dateToRussian(date) {
 
 function noteToStr(note) {
     let date_str = dateToRussian(note.date)
-    let str = `Заметка:\n\nТекст: ${note.text}\nДата: ${date_str}\nВремя: ${note.time.h} : ${note.time.m}`
+    if (note.time.h.toString().length < 2) {
+        note.time.h = '0' + note.time.h
+    }
+    if (note.time.m.toString().length < 2) {
+        note.time.m = '0' + note.time.m
+    }
+    let str = `*Текущая заметка*\n\n*Дата:* _${date_str}_\n*Время:* _${note.time.h} : ${note.time.m}_\n*Текст:* ${note.text}`
     console.log(str)
     return str
 }
 
 function note_menu_new_msg(id) {
     let opts = { // @todo put this into func
-        reply_markup: create_note_markup
+        reply_markup: create_note_markup,
+        parse_mode: "markdown"
     }
     let note = getUserBufferNote(id)
     if (note == null)  {
@@ -255,7 +262,8 @@ function note_menu_edit_msg(chat_id, message_id) {
     let opts = { // @todo put this into func
         chat_id: chat_id,
         message_id: message_id,
-        reply_markup: create_note_markup
+        reply_markup: create_note_markup,
+        parse_mode: "markdown"
     }
     let note = getUserBufferNote(chat_id)
     if (note == null)  {
@@ -275,7 +283,7 @@ function time_menu(chat_id, message_id) {
         message_id: message_id,
         reply_markup: reply_markup
     }
-    let text = 'Выберете время\n\nИли введите\n\n /h "Час"\n/m "Минуты"'
+    let text = 'Нажмите на значение, что бы его изменить'
     bot.editMessageText(text, opts)
 }
 
@@ -286,33 +294,55 @@ bot.onText(/start/, function (msg, match) {
 
 // bot.leaveChat()
 
-bot.onText(/\/h (.+)/, function(msg, match) {
-    const hours = Number(match[1]);
-    let user = getUserById(msg.chat.id) //@todo separate in 2 funcs
+function changeUserBufferMinutes(user_id, minutes) {
+    if (isNaN(minutes)) {
+        return
+    }
+    let user = getUserById(user_id) 
+    user.buffer_note.time.m = minutes
+    user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
+}
+
+function changeUserBufferHours(user_id,   hours) {
+    if (isNaN(hours)) {
+        return
+    }
+    let user = getUserById(user_id) 
     user.buffer_note.time.h = hours
     user.buffer_note.time.h = checkHours(user.buffer_note.time.h)
+}
+
+function onTimeChange(user) {
+    checkUserData(user)
     let reply_markup = getTimeMarkup(user.buffer_note.time.h, user.buffer_note.time.m)
     let opts = {
         reply_markup: reply_markup
     }
-    let text = 'Выберете время\n\nИли введите\n\n /h "Час"\n/m "Минуты"'
-    bot.sendMessage(msg.chat.id, text, opts)
+    let text = 'Нажмите на значение, что бы его изменить'
+    bot.sendMessage(user.id, text, opts)
     checkUserData(user)
-  });
+}
 
-bot.onText(/\/m (.+)/, function(msg, match) {
-    const minutes = Number(match[1]);
-    let user = getUserById(msg.chat.id) //@todo separate in 2 funcs
-    user.buffer_note.time.m = minutes
-    user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
-    let reply_markup = getTimeMarkup( user.buffer_note.time.h, user.buffer_note.time.m)
-    let opts = {
-        reply_markup: reply_markup
-    }
-    let text = 'Выберете время\n\nИли введите\n\n /h "Час"\n/m "Минуты"'
-    bot.sendMessage(msg.chat.id, text, opts)
-    checkUserData(user)
-  });
+// bot.onText(/\/h (.+)/, function(msg, match) {
+    
+//   });
+
+// bot.onText(/\/m (.+)/, function(msg, match) {
+//     const minutes = Number(match[1]);
+//     if (isNaN(minutes)) {
+//         return
+//     }
+//     let user = getUserById(msg.chat.id) //@todo separate in 2 funcs
+//     user.buffer_note.time.m = minutes
+//     user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
+//     let reply_markup = getTimeMarkup( user.buffer_note.time.h, user.buffer_note.time.m)
+//     let opts = {
+//         reply_markup: reply_markup
+//     }
+//     let text = 'Выберете время\n\nИли введите\n\n /h "Час"\n/m "Минуты"'
+//     bot.sendMessage(msg.chat.id, text, opts)
+//     checkUserData(user)
+//   });
 
 bot.on('message', function(msg){
     let user = getUserById(msg.chat.id)
@@ -348,6 +378,12 @@ bot.on('message', function(msg){
             var m = time_arr[1]
             var user_mins = Number(h) * 60 + Number(m)
             setUserMinuteOffset(user, user_mins)
+        } else if (user.state == keyboard_anwers.Изменить_минуты) {
+            changeUserBufferMinutes(msg.chat.id, Number(msg.text))
+            onTimeChange(user)
+        } else if (user.state == keyboard_anwers.Изменить_часы) {
+            changeUserBufferHours  (msg.chat.id, Number(msg.text))
+            onTimeChange(user)
         }
     }
 });
@@ -432,13 +468,11 @@ const change_date_markup = JSON.stringify({
 })
 
 function getTimeMarkup(h, m) {
-    var hours = h >= 10 ? h.toString() : '0' + h.toString()
-    var minutes = m >= 10 ? m.toString() : '0' + m.toString()
+    var hours = h.toString().length < 2 ? '0' + h : h
+    var minutes = m.toString().length < 2 ? '0' + m : m
     let reply_markup = {
         inline_keyboard: [
-            [{ text: '+', callback_data: keyboard_anwers["Час_+"] }, { text: '+', callback_data: keyboard_anwers["Минуты_+"] }],
-            [{ text: hours, callback_data: 0 }, { text: minutes, callback_data: 0 }],
-            [{ text: '-', callback_data: keyboard_anwers["Час_-"] }, { text: '-', callback_data: keyboard_anwers["Минуты_-"] }], 
+            [{ text: hours, callback_data: keyboard_anwers.Изменить_часы }, { text: minutes, callback_data: keyboard_anwers.Изменить_минуты }],
             [{ text: 'Ок', callback_data: keyboard_anwers.Назад_изменение_даты }]
         ]
     }
@@ -579,9 +613,23 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     } else if (action == keyboard_anwers.Другая_дата) {
         var curr_date = new Date()
         CalendarMenuEditMsg(msg.chat.id, msg.message_id, curr_date.getFullYear(), curr_date.getMonth())
+    } else if (action == keyboard_anwers.Изменить_минуты || action == keyboard_anwers.Изменить_часы) {
+        let user = getUserById(msg.chat.id)
+        if (user == null) {
+            console.error('user is null: error')
+            return
+        } if (action == keyboard_anwers.Изменить_минуты) {
+            text = 'Введите минуты'
+            user.state = keyboard_anwers.Изменить_минуты
+        } else {
+            text = 'Введите часы'
+            user.state = keyboard_anwers.Изменить_часы
+        }
+        checkUserData(user)
+        bot.sendMessage(user.id, text)
     } else {
         var btn_date = new Date(action)
-        if (isValidDate(btn_date)) {
+        if (isValidDate(btn_date) && action != 0) {
             var user = getUserById(msg.chat.id)
             if (user == null) {
                 console.error("User is null: error")
