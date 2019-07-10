@@ -17,6 +17,7 @@ var request = require('request');
 
 
 var fs = require("fs");
+var emodji = require('./emodji.json')
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 const TOKEN = require(config_dir + bot_token_file)['token']
 // const request = require('request') @todo
@@ -153,10 +154,11 @@ var keyboard_anwers = {
 
 function onStartMsg(id) {
     var options = {
-        reply_markup: on_start_markup
+        reply_markup: on_start_markup,
+        parse_mode: 'markdown'
     };
 
-    bot.sendMessage(id, "Выбери опцию", options);
+    bot.sendMessage(id, "*Выбери опцию*", options);
 }
 
 function setUserMinuteOffset(user, user_mins) {
@@ -238,7 +240,7 @@ function noteToStr(note) {
     if (note.time.m.toString().length < 2) {
         note.time.m = '0' + note.time.m
     }
-    let str = `*Текущая заметка*\n\n*Дата:* _${date_str}_\n*Время:* _${note.time.h} : ${note.time.m}_\n*Текст:* ${note.text}`
+    let str = `*Текущая заметка*${emodji.note}\n\n*Дата:* _${date_str}_\n*Время:* _${note.time.h} : ${note.time.m}_\n*Текст:* ${note.text}`
     console.log(str)
     return str
 }
@@ -283,7 +285,7 @@ function time_menu(chat_id, message_id) {
         message_id: message_id,
         reply_markup: reply_markup
     }
-    let text = 'Нажмите на значение, что бы его изменить'
+    let text = 'Нажмите на значение, что бы его изменить ' + emodji.finger_down
     bot.editMessageText(text, opts)
 }
 
@@ -292,7 +294,6 @@ bot.onText(/start/, function (msg, match) {
     onStart(msg.from);
 });
 
-// bot.leaveChat()
 
 function changeUserBufferMinutes(user_id, minutes) {
     if (isNaN(minutes)) {
@@ -322,28 +323,6 @@ function onTimeChange(user) {
     bot.sendMessage(user.id, text, opts)
     checkUserData(user)
 }
-
-// bot.onText(/\/h (.+)/, function(msg, match) {
-    
-//   });
-
-// bot.onText(/\/m (.+)/, function(msg, match) {
-//     const minutes = Number(match[1]);
-//     if (isNaN(minutes)) {
-//         return
-//     }
-//     let user = getUserById(msg.chat.id) //@todo separate in 2 funcs
-//     user.buffer_note.time.m = minutes
-//     user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
-//     let reply_markup = getTimeMarkup( user.buffer_note.time.h, user.buffer_note.time.m)
-//     let opts = {
-//         reply_markup: reply_markup
-//     }
-//     let text = 'Выберете время\n\nИли введите\n\n /h "Час"\n/m "Минуты"'
-//     bot.sendMessage(msg.chat.id, text, opts)
-//     checkUserData(user)
-//   });
-
 bot.on('message', function(msg){
     let user = getUserById(msg.chat.id)
     if (user == null) return
@@ -366,17 +345,28 @@ bot.on('message', function(msg){
             note_menu_new_msg(user.id)
         } else if (user.state == keyboard_anwers.Отправить_время) {
             let time = msg.text // @todo fix
-            var time_arr = []
-            if (time[2] == '-') { //@todo fix for 9-27 exmp.
-                time_arr = time.split('-')
-            }else if (time[2] == ':') {
-                time_arr = time.split(':')
-            }else if (time[2] == ' ') {
-                time_arr = time.split(' ')
+            let err_text = 'Неправильное время'
+            if (time.length < 3) {
+                bot.sendMessage(msg.chat.id, err_text)
             }
-            var h = time_arr[0]
-            var m = time_arr[1]
-            var user_mins = Number(h) * 60 + Number(m)
+            let time_arr = []
+            for (let char of ['-', ':', ' ', '^', '.', '/', '\\', '*']) {
+                time_arr = time.split(char)
+                if (time_arr.length == 2)
+                    break        
+            }
+            var h = 0, m = 0
+            if (time_arr.length != 2) {
+                bot.sendMessage(msg.chat.id, err_text)
+                return
+            }
+            h = Number(time_arr[0])
+            m = Number(time_arr[1])
+            if (isNaN(h) || isNaN(m)) {
+                bot.sendMessage(msg.chat.id, err_text)
+                return
+            }
+            var user_mins = h * 60 + m
             setUserMinuteOffset(user, user_mins)
         } else if (user.state == keyboard_anwers.Изменить_минуты) {
             changeUserBufferMinutes(msg.chat.id, Number(msg.text))
@@ -433,7 +423,7 @@ function getUserTimeOffset(chat_id) {
             }], [{text: "Передать точное время"}]]
         }
     };
-    var text = "Для коректной работы напоминаний и синхронизацией с сервером необходимо получить Ваш часовой пояс.\n\
+    var text = "Для коректной работы напоминаний и синхронизацией с сервером необходимо получить Ваш часовой пояс.\n\n\
 Вы можете передать нам свою геолокацию для автоматического определения часового пояса, а можете отправить свое точное время в даный момент"
     bot.sendMessage(chat_id, text, opts)
 }
@@ -444,17 +434,17 @@ bot.onText(/timestamp/, function (msg, match) {
 
 const on_start_markup = JSON.stringify({
     inline_keyboard: [
-        [{ text: 'Создать заметку', callback_data: keyboard_anwers.Создать_заметку, request_location: true }],
-        [{ text: 'Получить картинку котика)', callback_data: keyboard_anwers.Получить_котика, request_location: true }]
+        [{ text: 'Создать заметку ' + emodji.note, callback_data: keyboard_anwers.Создать_заметку, request_location: true }],
+        [{ text: 'Получить картинку котика) ' + emodji.cat, callback_data: keyboard_anwers.Получить_котика, request_location: true }]
     ]
 })
 
 
 const create_note_markup = JSON.stringify({
     inline_keyboard: [
-        [{ text: 'Изменить дату', callback_data: keyboard_anwers.Изменить_дату }, { text: 'Изменить время', callback_data: keyboard_anwers.Изменить_время }],
-        [{ text: 'Изменить текст', callback_data: keyboard_anwers.Изменить_текст }],
-        [{ text: 'Назад', callback_data: keyboard_anwers.Назад_создание_заметки }, { text: 'Добавить заметку', callback_data: keyboard_anwers.Добавить_заметку }]
+        [{ text: 'Изменить дату ' + emodji.calendar, callback_data: keyboard_anwers.Изменить_дату }, { text: 'Изменить время ' + emodji.clock, callback_data: keyboard_anwers.Изменить_время }],
+        [{ text: 'Изменить текст ' + emodji.writting_hand, callback_data: keyboard_anwers.Изменить_текст }],
+        [{ text: 'Назад', callback_data: keyboard_anwers.Назад_создание_заметки }, { text: 'Добавить заметку' + emodji.check, callback_data: keyboard_anwers.Добавить_заметку }]
     ]
 })
 
@@ -527,7 +517,9 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         let opts = {
             chat_id: msg.chat.id,
             message_id: msg.message_id,
-            reply_markup: change_date_markup
+            reply_markup: change_date_markup,
+            parse_mode: "markdown"
+            
         }
         text = noteToStr(getUserBufferNote(msg.chat.id))
         bot.editMessageText(text,opts)
@@ -652,9 +644,10 @@ function CalendarMenuEditMsg(chat_id, message_id, year, month) {
     var options = {
         reply_markup: getMonthMarkup(year, month),
         chat_id: chat_id, 
-        message_id: message_id
+        message_id: message_id,
+        parse_mode: "markdown"
     }
-    bot.editMessageText("Выберите дату", options)
+    bot.editMessageText("*Выберите дату*", options)
 }
 
 
