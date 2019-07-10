@@ -65,7 +65,7 @@ function checkNotes() {
         if (curr_note_date.getDate() == curr_date.getDate() && 
             curr_note_date.getHours() == curr_date.getHours() && 
             curr_note_date.getMinutes() == curr_date.getMinutes()) {
-                bot.sendMessage(NOTES[i].user_id, `Напоминание!!\n\n \n\n${NOTES[i].text}\n`)
+                bot.sendMessage(NOTES[i].user_id, `Напоминание!!\n\n \n\n${NOTES[i].text}\n`)//@todo refactor a bit
                 console.log("Send message when dates are equal")
                 console.log("Curr date -- " + curr_date)
                 console.log("Curr note date -- " + curr_note_date)
@@ -124,7 +124,7 @@ function saveNotes() {
     let notes_data = JSON.stringify(NOTES, null, '   ')
     fs.writeFileSync(config_dir + notes_file, notes_data)
 }
-
+//@todo put in separate JSON file
 var keyboard_anwers = {
     "Создать_заметку": 1,
     "Получить_котика": 2,
@@ -145,7 +145,9 @@ var keyboard_anwers = {
     "Минуты_-": 17, 
     "Добавить_заметку": 18,
     "Отправить_геолокацию": 19,
-    "Отправить_время":20
+    "Отправить_время":20, 
+    "Календарь_вправо": 21,
+    "Календарь_влево": 22
 }
 
 
@@ -211,9 +213,25 @@ function onStart(user) {
     checkUserData(user)
 }
 
+function getMonthName(month) {
+    let raw_month = calendar.monthNames[month]
+    if (raw_month.endsWith('т')) {
+        raw_month += 'а'
+    } else {
+        raw_month = raw_month.slice(0, -1)
+        raw_month += 'я'
+    }
+    return raw_month
+}
+function dateToRussian(date) {
+    let day_name = calendar.dayNames[getDayNumFromMonday(date.getDay())]
+    let month_name = getMonthName(date.getMonth())
+    let date_str_rus = `${day_name}, ${date.getDate()} ${month_name} ${date.getFullYear()}`
+    return date_str_rus
+}
 
 function noteToStr(note) {
-    let date_str = note.date.toLocaleDateString()
+    let date_str = dateToRussian(note.date)
     let str = `Заметка:\n\nТекст: ${note.text}\nДата: ${date_str}\nВремя: ${note.time.h} : ${note.time.m}`
     console.log(str)
     return str
@@ -319,7 +337,7 @@ bot.on('message', function(msg){
         } else if (user.state == keyboard_anwers.Отправить_время) {
             let time = msg.text // @todo fix
             var time_arr = []
-            if (time[2] == '-') {
+            if (time[2] == '-') { //@todo fix for 9-27 exmp.
                 time_arr = time.split('-')
             }else if (time[2] == ':') {
                 time_arr = time.split(':')
@@ -553,20 +571,50 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
             user.state = keyboard_anwers.Отправить_геолокацию
             checkUserData(user)
         }
+    } else if (action.indexOf('_') != -1) {
+        var tmp_date = action.split('_')
+        var year = tmp_date[0], month = tmp_date[1]
+        console.log(year, month)
+        CalendarMenuEditMsg(msg.chat.id, msg.message_id, year, month)
+    } else if (action == keyboard_anwers.Другая_дата) {
+        var curr_date = new Date()
+        CalendarMenuEditMsg(msg.chat.id, msg.message_id, curr_date.getFullYear(), curr_date.getMonth())
+    } else {
+        var btn_date = new Date(action)
+        if (isValidDate(btn_date)) {
+            var user = getUserById(msg.chat.id)
+            if (user == null) {
+                console.error("User is null: error")
+                return 
+            } else {
+                user.buffer_note.date.setFullYear(btn_date.getFullYear())
+                user.buffer_note.date.setMonth(btn_date.getMonth(), btn_date.getDate())
+                checkUserData(user)
+                note_menu_edit_msg(msg.chat.id, msg.message_id)
+            }
+        }
     }
+        
 
     bot.answerCallbackQuery(callbackQuery.id, query_reply_text)
         
 });
 
+function CalendarMenuEditMsg(chat_id, message_id, year, month) {
+    var options = {
+        reply_markup: getMonthMarkup(year, month),
+        chat_id: chat_id, 
+        message_id: message_id
+    }
+    bot.editMessageText("Выберите дату", options)
+}
+
+
+
+
+// bot.sendMessage(379946182, "test calendar", options)
+
 var calendar = new Calendar()
-
-var options = {
-    reply_markup: getMounthMarkup(2059, 5)
-};
-
-bot.sendMessage(379946182, "test calendar", options)
-
 function Calendar() {
     this.dayNames   = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
     this.monthNames = [
@@ -574,43 +622,65 @@ function Calendar() {
         "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
     ]
 }
-    function getMounthMarkup(year, mounth) {
-        var inline_keyboard = []
-        var days_btns = []
-        var mounth_btn = [{text: calendar.monthNames[mounth] + " " + year, callback_data: 0}]
-        inline_keyboard.push(mounth_btn)
-        calendar.dayNames.forEach(element => {
-            days_btns.push({text: element, callback_data: 0})
-        });
-        inline_keyboard.push(days_btns)
-        var date = new Date(year, mounth)
-        var day = date.getDay()
-        var array_of_days = new Array(6)
-        for (var i = 0; i < 6; i++) {
-            array_of_days[i] = new Array(7)
-            for (let j = 0; j < 7; j++) {
-                array_of_days[i][j] = {text: ' ', callback_data: 0}
+function getMonthMarkup(year, month) {
+    var inline_keyboard = []
+    var days_btns = []
+    var month_btn = [{text: calendar.monthNames[month] + " " + year, callback_data: 0}]
+    inline_keyboard.push(month_btn)
+    calendar.dayNames.forEach(element => {
+        days_btns.push({text: element, callback_data: 0})
+    });
+    inline_keyboard.push(days_btns)
+    var date = new Date(year, month)
+    var day = date.getDay()
+    var array_of_days = new Array(5)
+    for (var i = 0; i < 6; i++) {
+        array_of_days[i] = new Array(7)
+        for (let j = 0; j < 7; j++) {
+            array_of_days[i][j] = {text: ' ', callback_data: 0}
+        }
+    }
+    i = getDayNumFromMonday(day)
+    let day_counter = 1
+    array_of_days[0][i].text = '1'
+    array_of_days.forEach(element => {
+        var week_is_in_month = false
+        for (;i < 7; i++) {
+            date.setDate(day_counter)
+            if (date.getMonth() == month) {
+                week_is_in_month = true
+                element[i].text = (day_counter).toString()
+                element[i].callback_data = new Date(year, month, day_counter).toDateString()
+                day_counter++
             }
         }
-        i = getDayNumFromMonday(day)
-        let day_counter = 1
-        array_of_days[0][i].text = '1'
-        array_of_days.forEach(element => {
-            for (;i < 7; i++) {
-                date.setDate(day_counter)
-                if (date.getMonth() != mounth) {
-                    break
-                }
-                element[i].text = (day_counter++).toString()
-            }
-            i = 0
+
+        i = 0
+        if (week_is_in_month)
             inline_keyboard.push(element)
-        })
-        console.log(array_of_days)
-        var reply_markup = {}
-        reply_markup.inline_keyboard = inline_keyboard
-        return JSON.stringify(reply_markup)
+    })
+    var new_right_year = Number(year)
+    var new_left_year = new_right_year
+    var new_right_month = Number(month) + 1
+    if (new_right_month == 12) {
+        new_right_month = 0
+        new_right_year += 1
     }
+    var new_left_month = (month - 1) < 0 ? 11 : month - 1
+    if (new_left_month == 11) 
+        new_left_year -= 1 
+    var right_btn = {text: ">>>", callback_data: `${new_right_year}_${new_right_month}`}
+    var left_btn =  {text: "<<<", callback_data: `${new_left_year}_${new_left_month}`}
+    inline_keyboard.push([left_btn, right_btn])
+    inline_keyboard.push([{text: 'Назад', callback_data: keyboard_anwers.Изменить_дату}])
+    var reply_markup = {}
+    reply_markup.inline_keyboard = inline_keyboard
+    return JSON.stringify(reply_markup)
+}
+
+function isValidDate(date) {
+	return Object.prototype.toString.call(date) === '[object Date]' && date.getTime() === date.getTime()
+}
 
     
 
