@@ -186,13 +186,11 @@ function onStart(user) {
     user.buffer_note = JSON.parse(JSON.stringify(default_note), getDateFromJSON)
     user.buffer_note.user_id = user.id
     user.state = 0
-    if ('minute_offset' in user) {
-        onStartMsg(user.id)
-    } else {
-        getUserTimeOffset(user.id)
-    }
     checkUserData(user)
+    getUserTimeOffset(user.id)
+    // onStartMsg(user.id)
 }
+    
 
 function getMonthName(month) {
     let raw_month = calendar.monthNames[month]

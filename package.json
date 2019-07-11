@@ -1,6 +1,6 @@
 {
   "name": "reminder_bot",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "description": "A simple node js Telegram reminder bot",
   "main": "bot.js",
   "dependencies": {
