@@ -5,29 +5,31 @@ A simple reminder telegram bot made with [`node-telegram-bot-api`](https://githu
 
 - Make sure you that you have created `config` directory one level upper where such files are stored
   - `bot_token.json`
-  
-        {
-            "token": "YOUR_TOKEN"
-        }
+    ```json  
+    {
+        "token": "YOUR_TOKEN"
+    }
+    ```
   - `notes.json`
-  
-        [{
-            "text": "Hello",
-            "date": "2019-07-09T14:07:14.943Z",
-            "time": {
-             "h": 16,
-            "m": 10
-            },
-             "user_id": 123456789
-        }]
+     ```json
+    [{
+        "text": "Hello",
+        "date": "2019-07-09T14:07:14.943Z",
+        "time": {
+         "h": 16,
+        "m": 10
+        },
+         "user_id": 123456789
+    }]
+    ```
     Or an emply array
-
-        []
-        
+    ```json
+    []
+    ```
   - `users.json`
-   
-        []
-        
+    ```json
+    []
+    ```
     Can be empty to
 
          
