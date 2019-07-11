@@ -117,8 +117,9 @@ function checkUserData(user) {
     if (!usersContain(user)) {
         user.cat_count = 0
         USERS.push(user)
-        const greeting_msg = 'Привет, это бот для создание напоминалок!'
+        const greeting_msg = 'Привет, это бот для создание напоминалок! Для начала работы боту нужно получить Ваше точное время либо геолокацию в данный момент'
         bot.sendMessage(user.id, greeting_msg)
+        getUserTimeOffset(user.id)
     }
     saveUsers()
 }
@@ -153,7 +154,7 @@ function setUserMinuteOffset(user, user_mins) {
     checkUserData(user)
     var reply = 'Спасибо, теперь можете начать пользоваться ботом!'
     bot.sendMessage(user.id, reply)
-    note_menu_new_msg(user.id)
+    onStartMsg(user.id)
 }
 
 function locationRequest(user_id, lat, long) {
@@ -312,8 +313,9 @@ bot.on('message', function(msg) {
     let user = getUserById(msg.chat.id)
     if (user == null) return
     if (msg.text == 'Передать точное время') {
-        user.state = states.Отправить_время
-        checkUserData(user)
+        if (user.state != states.Поделится_своим_временем) {
+            return
+        }
         var  reply = 'Отправьте свое точное время в формате \'чч:мм\' или \'чч-мм\' или \'чч мм\' в 24-часовом формате'
         bot.sendMessage(user.id, reply)
         return;
@@ -328,7 +330,7 @@ bot.on('message', function(msg) {
             }
             checkUserData(user)
             note_menu_new_msg(user.id)
-        } else if (user.state == states.Отправить_время) {
+        } else if (user.state == states.Поделится_своим_временем) {
             let time = msg.text 
             let err_text = 'Неправильное время'
             if (time.length < 3) {
@@ -416,7 +418,7 @@ function getUserTimeOffset(chat_id) {
         return
     }
     user['state'] = states.Поделится_своим_временем
-    checkUserData(user)
+    saveUsers()
     bot.sendMessage(chat_id, text, opts)
     
 }
@@ -497,8 +499,8 @@ bot.on('location', function(msg) {
         if (user.state != states.Поделится_своим_временем) {
             return
         }
+        locationRequest(msg.chat.id, latitude, longitude)
     }
-    locationRequest(msg.chat.id, latitude, longitude)
 
 })
 
