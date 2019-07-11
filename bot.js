@@ -12,7 +12,6 @@ const bot_token_file = 'bot_token.json'
 const users_file = 'users.json'
 const notes_file = 'notes.json'
 
-var requirejs = require('requirejs');
 var request = require('request');
 
 
