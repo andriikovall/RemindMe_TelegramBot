@@ -3,7 +3,7 @@ A simple reminder telegram bot made with [`node-telegram-bot-api`](https://githu
 
 ## Building and running
 
-- Make sure you that you have created `config` directory one level upper such files are stored
+- Make sure you that you have created `config` directory one level upper where such files are stored
   - `bot_token.json`
   
         {
