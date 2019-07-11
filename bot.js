@@ -26,25 +26,28 @@ var TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(TOKEN, { polling: true, timeout: 500 });
 
 rawdata = fs.readFileSync(config_dir + users_file); //@todo fix this
-var USERS = JSON.parse(rawdata ,function(key, value) {
-    if (key == "date") {
+var USERS = JSON.parse(rawdata ,getDateFromJSON)
+
+function getDateFromJSON(key, value) {
+    if (key == 'date') {
         return new Date(value)
     } else {
         return value
     }
-})
+}
 
 
 rawdata = fs.readFileSync(config_dir + notes_file);
-var NOTES = JSON.parse(rawdata ,function(key, value) {
-    if (key == "date") {
-        return new Date(value)
-    } else {
-        return value
-    }
-})
+var NOTES = JSON.parse(rawdata , getDateFromJSON)
 
-var start_date = new Date()
+var start_date = new Date(Date.now())
+
+setInterval(function() {
+    var curr_date = new Date(Date.now())
+    default_note.date = curr_date
+    default_note.time.h = curr_date.getHours()
+    default_note.time.m = curr_date.getMinutes()
+}, 60000)
 
 var default_note = {
     text: '',
@@ -52,12 +55,6 @@ var default_note = {
     time: {h: start_date.getHours(), m: start_date.getMinutes()},
     user_id: 0
 }
-setInterval(function() {
-    var curr_date = new Date()
-    default_note.date = curr_date
-    default_note.time.h = curr_date.getHours()
-    default_note.time.m = curr_date.getMinutes()
-}, 1,44e+7)
 
 function checkNotes() {
     let curr_date = new Date()
@@ -66,16 +63,17 @@ function checkNotes() {
         if (curr_note_date.getDate() == curr_date.getDate() && 
             curr_note_date.getHours() == curr_date.getHours() && 
             curr_note_date.getMinutes() == curr_date.getMinutes()) {
-                bot.sendMessage(NOTES[i].user_id, `Напоминание!!\n\n \n\n${NOTES[i].text}\n`)//@todo refactor a bit
+                let reminder_text = `*Напоминание:*\n${NOTES[i].text}`
+                let opts = {
+                    parse_mode: 'markdown'
+                }
+                bot.sendMessage(NOTES[i].user_id, reminder_text, opts)
                 console.log("Send message when dates are equal")
                 console.log("Curr date -- " + curr_date)
                 console.log("Curr note date -- " + curr_note_date)
                 NOTES.splice(i, 1)
                 saveNotes()
             }
-            console.log("curr date  " + curr_date)
-            console.log('curr_note_date  ' + curr_note_date)
-            console.log('\n')
     }
 }
 
@@ -109,6 +107,12 @@ function getUserById(id) {
     }
     return null
 }
+
+function saveUsers() {
+    let user_data = JSON.stringify(USERS, null, '   ')
+    fs.writeFileSync(config_dir + users_file, user_data)
+}
+
 function checkUserData(user) {
     user.buffer_note.user_id = user.id
     if (!usersContain(user)) {
@@ -117,41 +121,15 @@ function checkUserData(user) {
         const greeting_msg = 'Привет, это бот для создание напоминалок!'
         bot.sendMessage(user.id, greeting_msg)
     }
-    let user_data = JSON.stringify(USERS, null, '   ')
-    fs.writeFileSync(config_dir + users_file, user_data)
+    saveUsers()
 }
 
 function saveNotes() {
     let notes_data = JSON.stringify(NOTES, null, '   ')
     fs.writeFileSync(config_dir + notes_file, notes_data)
 }
-//@todo put in separate JSON file
-var keyboard_anwers = {
-    "Создать_заметку": 1,
-    "Получить_котика": 2,
-    "Изменить_дату": 3,
-    "Изменить_время": 4,
-    "Изменить_текст": 5,
-    "Сегодня": 6,
-    "Завтра": 7,
-    "Послезавтра": 8,
-    "Другая_дата": 9,
-    "Назад_создание_заметки": 10,
-    "Назад_изменение_даты": 11,
-    "Назад_изменение_время": 12,
-    "Созать_заметку": 13,
-    "Изменить_часы": 14,
-    "Изменить_минуты": 15,
-    "Минуты_+": 16,
-    "Минуты_-": 17, 
-    "Добавить_заметку": 18,
-    "Отправить_геолокацию": 19,
-    "Отправить_время":20, 
-    "Календарь_вправо": 21,
-    "Календарь_влево": 22,
-    "Поделится_своим_временем": 23
-}
 
+var states = require('./states.json')
 
 function onStartMsg(id) {
     var options = {
@@ -205,7 +183,7 @@ function locationRequest(user_id, lat, long) {
 }
 
 function onStart(user) {
-    user.buffer_note = default_note
+    user.buffer_note = JSON.parse(JSON.stringify(default_note), getDateFromJSON)
     user.buffer_note.user_id = user.id
     user.state = 0
     if ('minute_offset' in user) {
@@ -251,7 +229,7 @@ function note_menu_new_msg(id) {
         reply_markup: create_note_markup,
         parse_mode: "markdown"
     }
-    let note = getUserBufferNote(id)
+    let note = getUserBufferNote(id) //@todo maybe always default note
     if (note == null)  {
         bot.editMessageText("error", opts)
         return
@@ -335,7 +313,7 @@ bot.on('message', function(msg) {
     let user = getUserById(msg.chat.id)
     if (user == null) return
     if (msg.text == 'Передать точное время') {
-        user.state = keyboard_anwers.Отправить_время
+        user.state = states.Отправить_время
         checkUserData(user)
         var  reply = 'Отправьте свое точное время в формате \'чч:мм\' или \'чч-мм\' или \'чч мм\' в 24-часовом формате'
         bot.sendMessage(user.id, reply)
@@ -343,7 +321,7 @@ bot.on('message', function(msg) {
     }
     if ('state' in user) {
 
-        if (user.state == keyboard_anwers.Изменить_текст) {
+        if (user.state == states.Изменить_текст) {
             user.buffer_note.text = msg.text
             user.state = 0
             var opts = {
@@ -351,14 +329,14 @@ bot.on('message', function(msg) {
             }
             checkUserData(user)
             note_menu_new_msg(user.id)
-        } else if (user.state == keyboard_anwers.Отправить_время) {
-            let time = msg.text // @todo fix
+        } else if (user.state == states.Отправить_время) {
+            let time = msg.text 
             let err_text = 'Неправильное время'
             if (time.length < 3) {
                 bot.sendMessage(msg.chat.id, err_text)
             }
             let time_arr = []
-            for (let char of ['-', ':', ' ', '^', '.', '/', '\\', '*']) {
+            for (let char of ['-', ':', ' ', '^', '.', '/', '\\', '*', ';', '+', '_', '%', '#', '@', '?']) {
                 time_arr = time.split(char)
                 if (time_arr.length == 2)
                     break        
@@ -376,10 +354,10 @@ bot.on('message', function(msg) {
             }
             var user_mins = h * 60 + m
             setUserMinuteOffset(user, user_mins)
-        } else if (user.state == keyboard_anwers.Изменить_минуты) {
+        } else if (user.state == states.Изменить_минуты) {
             changeUserBufferMinutes(msg.chat.id, Number(msg.text))
             onTimeChange(msg.chat.id)
-        } else if (user.state == keyboard_anwers.Изменить_часы) {
+        } else if (user.state == states.Изменить_часы) {
             changeUserBufferHours  (msg.chat.id, Number(msg.text))
             onTimeChange(msg.chat.id)
         }
@@ -402,7 +380,7 @@ var HttpClient = function () {
 
 function sendCat(id) {
     let user = getUserById(id)
-    if (user == undefined) {
+    if (user == null) {
         user = msg.from
         user.cat_count = 0
     }
@@ -438,7 +416,7 @@ function getUserTimeOffset(chat_id) {
         console.error('user is null: error')
         return
     }
-    user['state'] = keyboard_anwers.Поделится_своим_временем
+    user['state'] = states.Поделится_своим_временем
     checkUserData(user)
     bot.sendMessage(chat_id, text, opts)
     
@@ -450,26 +428,26 @@ bot.onText(/timestamp/, function (msg, match) {
 
 const on_start_markup = JSON.stringify({
     inline_keyboard: [
-        [{ text: 'Создать заметку ' + emodji.note, callback_data: keyboard_anwers.Создать_заметку, request_location: true }],
-        [{ text: 'Получить картинку котика) ' + emodji.cat, callback_data: keyboard_anwers.Получить_котика, request_location: true }]
+        [{ text: 'Создать заметку ' + emodji.note, callback_data: states.Создать_заметку, request_location: true }],
+        [{ text: 'Получить картинку котика) ' + emodji.cat, callback_data: states.Получить_котика, request_location: true }]
     ]
 })
 
 
 const create_note_markup = JSON.stringify({
     inline_keyboard: [
-        [{ text: 'Изменить дату ' + emodji.calendar, callback_data: keyboard_anwers.Изменить_дату }, { text: 'Изменить время ' + emodji.clock, callback_data: keyboard_anwers.Изменить_время }],
-        [{ text: 'Изменить текст ' + emodji.writting_hand, callback_data: keyboard_anwers.Изменить_текст }],
-        [{ text: 'Назад', callback_data: keyboard_anwers.Назад_создание_заметки }, { text: 'Сохранить заметку' + emodji.check, callback_data: keyboard_anwers.Добавить_заметку }]
+        [{ text: 'Изменить дату ' + emodji.calendar, callback_data: states.Изменить_дату }, { text: 'Изменить время ' + emodji.clock, callback_data: states.Изменить_время }],
+        [{ text: 'Изменить текст ' + emodji.writting_hand, callback_data: states.Изменить_текст }],
+        [{ text: 'Назад', callback_data: states.Назад_создание_заметки }, { text: 'Сохранить заметку' + emodji.check, callback_data: states.Добавить_заметку }]
     ]
 })
 
 const change_date_markup = JSON.stringify({
     inline_keyboard: [
-        [{ text: 'Сегодня', callback_data: keyboard_anwers.Сегодня }],  
-        [{ text: 'Завтра', callback_data: keyboard_anwers.Завтра }, { text: 'Послезавтра', callback_data: keyboard_anwers.Послезавтра }],
-        [{ text: 'Другая дата', callback_data: keyboard_anwers.Другая_дата }], 
-        [{ text: 'Назад', callback_data: keyboard_anwers.Назад_изменение_даты }]
+        [{ text: 'Сегодня', callback_data: states.Сегодня }],  
+        [{ text: 'Завтра', callback_data: states.Завтра }, { text: 'Послезавтра', callback_data: states.Послезавтра }],
+        [{ text: 'Другая дата', callback_data: states.Другая_дата }], 
+        [{ text: 'Назад', callback_data: states.Назад_изменение_даты }]
     ]
 })
 
@@ -478,8 +456,8 @@ function getTimeMarkup(h, m) {
     var minutes = m.toString().length < 2 ? '0' + m : m
     let reply_markup = {
         inline_keyboard: [
-            [{ text: hours, callback_data: keyboard_anwers.Изменить_часы }, { text: minutes, callback_data: keyboard_anwers.Изменить_минуты }],
-            [{ text: 'Ок', callback_data: keyboard_anwers.Назад_изменение_время }]
+            [{ text: hours, callback_data: states.Изменить_часы }, { text: minutes, callback_data: states.Изменить_минуты }],
+            [{ text: 'Ок', callback_data: states.Назад_изменение_время }]
         ]
     }
     return JSON.stringify(reply_markup)
@@ -517,7 +495,7 @@ bot.on('location', function(msg) {
         return
     }
     if ('state' in user) {
-        if (user.state != keyboard_anwers.Поделится_своим_временем) {
+        if (user.state != states.Поделится_своим_временем) {
             return
         }
     }
@@ -545,11 +523,11 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         bot.answerCallbackQuery(callbackQuery.id, query_reply_text)
         return
     }
-    if (action == keyboard_anwers.Создать_заметку) {
+    if (action == states.Создать_заметку) {
         note_menu_new_msg(msg.chat.id)
-    } else if (action == keyboard_anwers.Получить_котика) {
+    } else if (action == states.Получить_котика) {
         sendCat(msg.chat.id)
-    } else if (action == keyboard_anwers.Изменить_дату) {
+    } else if (action == states.Изменить_дату) {
         let opts = {
             chat_id: msg.chat.id,
             message_id: msg.message_id,
@@ -557,85 +535,62 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
             parse_mode: "markdown"
             
         }
-        text = noteToStr(getUserBufferNote(msg.chat.id))
-        bot.editMessageText(text,opts)
-    } else if (action == keyboard_anwers.Назад_создание_заметки){
+        text = noteToStr(user.buffer_note)
+        bot.editMessageText(text, opts)
+    } else if (action == states.Назад_создание_заметки){
         bot.deleteMessage(msg.chat.id, msg.message_id)
-        onStartMsg(msg.chat.id)
-    } else if (action == keyboard_anwers.Назад_изменение_даты ){
-        // let user = getUserById(msg.chat.id)
-        // if (user == null) {
-        //     console.error('user is null: error')
-        //     return
-        // } 
+        onStartMsg(user.id)
+    } else if (action == states.Назад_изменение_даты ){ 
         user.state = 0
-        checkUserData(user)
-        note_menu_edit_msg(msg.chat.id, msg.message_id) //@todo refactor -_-
-    } else if (action == keyboard_anwers.Изменить_текст) {
-        // let user = getUserById(msg.chat.id)
-        user['state'] = keyboard_anwers.Изменить_текст
+        note_menu_edit_msg(user.id, msg.message_id) //@todo refactor -_-
+    } else if (action == states.Изменить_текст) {
+        user['state'] = states.Изменить_текст
         text = "Введите текст для заметки"
-        bot.sendMessage(msg.chat.id, text)
-        checkUserData(user)
-    } else if (action == keyboard_anwers.Сегодня) {
-        // let user = getUserById(msg.chat.id)
-        user.buffer_note.date = new Date()
-        checkUserData(user)
+        bot.sendMessage(user.id, text)
+    } else if (action == states.Сегодня) {
+        user.buffer_note.date = new Date(Date.now())
         note_menu_edit_msg(msg.chat.id, msg.message_id)
-    } else if (action == keyboard_anwers.Завтра) {
-       // let user = getUserById(msg.chat.id)
-        let date = new Date()
+    } else if (action == states.Завтра) {
+        let date = new Date(Date.now())
         date.setDate(date.getDate() + 1)
         user.buffer_note.date = date
-        checkUserData(user)
         note_menu_edit_msg(msg.chat.id, msg.message_id)
-    } else if (action == keyboard_anwers.Послезавтра) {
-        //let user = getUserById(msg.chat.id)
-        let date = new Date()
+    } else if (action == states.Послезавтра) {
+        let date = new Date(Date.now())
         date.setDate(date.getDate() + 2)
         user.buffer_note.date = date
-        checkUserData(user)
         note_menu_edit_msg(msg.chat.id, msg.message_id)
-    } else if (action == keyboard_anwers.Изменить_время) {
+    } else if (action == states.Изменить_время) {
         time_menu(msg.chat.id, msg.message_id)
-    } else if (action == keyboard_anwers.Назад_изменение_время) {
+    } else if (action == states.Назад_изменение_время) {
         user.state = 0
-        checkUserData(user)
         note_menu_edit_msg(msg.chat.id, msg.message_id)
-    } else if (action == keyboard_anwers.Добавить_заметку) { 
-    
-        //let user = getUserById(msg.chat.id)
+    } else if (action == states.Добавить_заметку) { 
         user.buffer_note.date.setHours(user.buffer_note.time.h)
         user.buffer_note.date.setMinutes(user.buffer_note.time.m - user.minute_offset) 
         NOTES.push(user.buffer_note)
         saveNotes()
-        user.buffer_note = default_note
-        checkUserData(user)
+        user.buffer_note = JSON.parse(JSON.stringify(default_note), getDateFromJSON) 
         bot.deleteMessage(msg.chat.id, msg.message_id)
         onStartMsg(msg.chat.id)
         query_reply_text = "Заметка создана!"
-    } else if (action == keyboard_anwers.Отправить_геолокацию) {
-        //var user = getUserById(msg.chat.id)
-        user.state = keyboard_anwers.Отправить_геолокацию
-        checkUserData(user)
+    } else if (action == states.Отправить_геолокацию) {
+        user.state = states.Отправить_геолокацию
     } else if (action.indexOf('_') != -1) {
         var tmp_date = action.split('_')
         var year = tmp_date[0], month = tmp_date[1]
-        console.log(year, month)
         CalendarMenuEditMsg(msg.chat.id, msg.message_id, year, month)
-    } else if (action == keyboard_anwers.Другая_дата) {
+    } else if (action == states.Другая_дата) {
         var curr_date = new Date()
         CalendarMenuEditMsg(msg.chat.id, msg.message_id, curr_date.getFullYear(), curr_date.getMonth())
-    } else if (action == keyboard_anwers.Изменить_минуты || action == keyboard_anwers.Изменить_часы) {
-        //let user = getUserById(msg.chat.id)
-        if (action == keyboard_anwers.Изменить_минуты) {
+    } else if (action == states.Изменить_минуты || action == states.Изменить_часы) {
+        if (action == states.Изменить_минуты) {
             text = 'Введите минуты'
-            user.state = keyboard_anwers.Изменить_минуты
+            user.state = states.Изменить_минуты
         } else {
             text = 'Введите часы'
-            user.state = keyboard_anwers.Изменить_часы
+            user.state = states.Изменить_часы
         }
-        checkUserData(user)
         bot.sendMessage(user.id, text)
     } else {
         var btn_date = new Date(action)
@@ -643,15 +598,13 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
 
             user.buffer_note.date.setFullYear(btn_date.getFullYear())
             user.buffer_note.date.setMonth(btn_date.getMonth(), btn_date.getDate())
-            checkUserData(user)
             note_menu_edit_msg(msg.chat.id, msg.message_id)
         }
     }
-        
-
+    saveUsers()
     bot.answerCallbackQuery(callbackQuery.id, query_reply_text)
-        
 });
+
 
 function CalendarMenuEditMsg(chat_id, message_id, year, month) {
     var options = {
@@ -722,7 +675,7 @@ function getMonthMarkup(year, month) {
     var right_btn = {text: ">>>", callback_data: `${new_right_year}_${new_right_month}`}
     var left_btn =  {text: "<<<", callback_data: `${new_left_year}_${new_left_month}`}
     inline_keyboard.push([left_btn, right_btn])
-    inline_keyboard.push([{text: 'Назад', callback_data: keyboard_anwers.Изменить_дату}])
+    inline_keyboard.push([{text: 'Назад', callback_data: states.Изменить_дату}])
     var reply_markup = {}
     reply_markup.inline_keyboard = inline_keyboard
     return JSON.stringify(reply_markup)
@@ -732,9 +685,6 @@ function isValidDate(date) {
 	return Object.prototype.toString.call(date) === '[object Date]' && date.getTime() === date.getTime()
 }
 
-    
-
-
 function getDayNumFromMonday(day_number) {
     if (day_number == 0) {
         return 6
@@ -742,9 +692,3 @@ function getDayNumFromMonday(day_number) {
         return day_number - 1
     }
 }
-
-    
-
-
-
-
