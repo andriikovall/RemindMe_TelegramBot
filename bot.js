@@ -624,61 +624,61 @@ function Calendar() {
         "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
     ]
 }
-function getMonthMarkup(year, month) {
-    var inline_keyboard = []
-    var days_btns = []
-    var month_btn = [{text: calendar.monthNames[month] + " " + year, callback_data: 0}]
-    inline_keyboard.push(month_btn)
-    calendar.dayNames.forEach(element => {
-        days_btns.push({text: element, callback_data: 0})
-    });
-    inline_keyboard.push(days_btns)
-    var date = new Date(year, month)
-    var day = date.getDay()
-    var array_of_days = new Array(5)
-    for (var i = 0; i < 6; i++) {
-        array_of_days[i] = new Array(7)
-        for (let j = 0; j < 7; j++) {
-            array_of_days[i][j] = {text: ' ', callback_data: 0}
-        }
-    }
-    i = getDayNumFromMonday(day)
-    let day_counter = 1
-    array_of_days[0][i].text = '1'
-    array_of_days.forEach(element => {
-        var week_is_in_month = false
-        for (;i < 7; i++) {
-            date.setDate(day_counter)
-            if (date.getMonth() == month) {
-                week_is_in_month = true
-                element[i].text = (day_counter).toString()
-                element[i].callback_data = new Date(year, month, day_counter).toDateString()
-                day_counter++
-            }
-        }
+// function getMonthMarkup(year, month) {
+//     var inline_keyboard = []
+//     var days_btns = []
+//     var month_btn = [{text: calendar.monthNames[month] + " " + year, callback_data: 0}]
+//     inline_keyboard.push(month_btn)
+//     calendar.dayNames.forEach(element => {
+//         days_btns.push({text: element, callback_data: 0})
+//     });
+//     inline_keyboard.push(days_btns)
+//     var date = new Date(year, month)
+//     var day = date.getDay()
+//     var array_of_days = new Array(5)
+//     for (var i = 0; i < 6; i++) {
+//         array_of_days[i] = new Array(7)
+//         for (let j = 0; j < 7; j++) {
+//             array_of_days[i][j] = {text: ' ', callback_data: 0}
+//         }
+//     }
+//     i = getDayNumFromMonday(day)
+//     let day_counter = 1
+//     array_of_days[0][i].text = '1'
+//     array_of_days.forEach(element => {
+//         var week_is_in_month = false
+//         for (;i < 7; i++) {
+//             date.setDate(day_counter)
+//             if (date.getMonth() == month) {
+//                 week_is_in_month = true
+//                 element[i].text = (day_counter).toString()
+//                 element[i].callback_data = new Date(year, month, day_counter).toDateString()
+//                 day_counter++
+//             }
+//         }
 
-        i = 0
-        if (week_is_in_month)
-            inline_keyboard.push(element)
-    })
-    var new_right_year = Number(year)
-    var new_left_year = new_right_year
-    var new_right_month = Number(month) + 1
-    if (new_right_month == 12) {
-        new_right_month = 0
-        new_right_year += 1
-    }
-    var new_left_month = (month - 1) < 0 ? 11 : month - 1
-    if (new_left_month == 11) 
-        new_left_year -= 1 
-    var right_btn = {text: ">>>", callback_data: `${new_right_year}_${new_right_month}`}
-    var left_btn =  {text: "<<<", callback_data: `${new_left_year}_${new_left_month}`}
-    inline_keyboard.push([left_btn, right_btn])
-    inline_keyboard.push([{text: 'Назад', callback_data: states.Изменить_дату}])
-    var reply_markup = {}
-    reply_markup.inline_keyboard = inline_keyboard
-    return JSON.stringify(reply_markup)
-}
+//         i = 0
+//         if (week_is_in_month)
+//             inline_keyboard.push(element)
+//     })
+//     var new_right_year = Number(year)
+//     var new_left_year = new_right_year
+//     var new_right_month = Number(month) + 1
+//     if (new_right_month == 12) {
+//         new_right_month = 0
+//         new_right_year += 1
+//     }
+//     var new_left_month = (month - 1) < 0 ? 11 : month - 1
+//     if (new_left_month == 11) 
+//         new_left_year -= 1 
+//     var right_btn = {text: ">>>", callback_data: `${new_right_year}_${new_right_month}`}
+//     var left_btn =  {text: "<<<", callback_data: `${new_left_year}_${new_left_month}`}
+//     inline_keyboard.push([left_btn, right_btn])
+//     inline_keyboard.push([{text: 'Назад', callback_data: states.Изменить_дату}])
+//     var reply_markup = {}
+//     reply_markup.inline_keyboard = inline_keyboard
+//     return JSON.stringify(reply_markup)
+// }
 
 function isValidDate(date) {
 	return Object.prototype.toString.call(date) === '[object Date]' && date.getTime() === date.getTime()
