@@ -163,7 +163,7 @@ function locationRequest(user_id, lat, long) {
         console.error('user is null error')
         return
     }
-    request({
+    request({ 
         uri: "http://api.geonames.org/timezoneJSON",
         method: "POST",
         form: {
