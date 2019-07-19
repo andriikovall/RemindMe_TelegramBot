@@ -20,6 +20,9 @@ var emodji = require('./emodji.json')
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 const TOKEN = require(config_dir + bot_token_file)['token']
 // const request = require('request') @todo
+var C = require('small_calendar_js')
+const calendar = new C.Calendar() 
+calendar.setOptions({dayToStartWeek: 1})
 
 var TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(TOKEN, { polling: true, timeout: 500 });
@@ -193,7 +196,7 @@ function onStart(user) {
     
 
 function getMonthName(month) {
-    let raw_month = calendar.monthNames[month]
+    let raw_month = calendar.opts.monthNames[month] // @todo fix
     if (raw_month.endsWith('т')) {
         raw_month += 'а'
     } else {
@@ -202,8 +205,8 @@ function getMonthName(month) {
     }
     return raw_month
 }
-function dateToRussian(date) {
-    let day_name = calendar.dayNames[getDayNumFromMonday(date.getDay())]
+function dateToRussian(date) { // @todo fix!!!!!!!
+    let day_name = calendar.opts.dayNames[getDayNumFromMonday(date.getDay())]
     let month_name = getMonthName(date.getMonth())
     let date_str_rus = `${day_name}, ${date.getDate()} ${month_name} ${date.getFullYear()}`
     return date_str_rus
@@ -427,8 +430,8 @@ bot.onText(/timestamp/, function (msg, match) {
 
 const on_start_markup = JSON.stringify({
     inline_keyboard: [
-        [{ text: 'Создать заметку ' + emodji.note, callback_data: states.Создать_заметку, request_location: true }],
-        [{ text: 'Получить картинку котика) ' + emodji.cat, callback_data: states.Получить_котика, request_location: true }]
+        [{ text: 'Создать заметку ' + emodji.note, callback_data: states.Создать_заметку}],
+        [{ text: 'Получить картинку котика) ' + emodji.cat, callback_data: states.Получить_котика}]
     ]
 })
 
@@ -605,9 +608,43 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
 });
 
 
-function CalendarMenuEditMsg(chat_id, message_id, year, month) {
+function CalendarMenuEditMsg(chat_id, message_id, year, _month) {
+    var month = calendar.getMonth(year, _month, 1)
+    var inline_keyboard = []
+    inline_keyboard.push([{text: month.month + " " + year.toString(), callback_data: 0}])
+    var day_names = []
+    month.days.forEach(day => {
+        day_names.push({text: day, callback_data: 0})
+    })
+    inline_keyboard.push(day_names)
+    month.weeks_arr.forEach(week => {
+        var week_keyboard = []
+        week.forEach(day => {
+            var date_text = day != 0 ? new Date(year, _month, day).toDateString() : 0
+            var day_text = day != 0 ? day.toString() : '  ' 
+            week_keyboard.push({text: day_text, callback_data: date_text })
+        })
+        inline_keyboard.push(week_keyboard)
+    })
+
+    var new_right_year = Number(year)
+    var new_left_year = new_right_year
+    var new_right_month = Number(_month) + 1
+    if (new_right_month == 12) {
+        new_right_month = 0
+        new_right_year += 1
+    }
+    var new_left_month = (_month - 1) < 0 ? 11 : _month - 1
+    if (new_left_month == 11) 
+        new_left_year -= 1 
+    var right_btn = {text: ">>>", callback_data: `${new_right_year}_${new_right_month}`}
+    var left_btn =  {text: "<<<", callback_data: `${new_left_year}_${new_left_month}`}
+    inline_keyboard.push([left_btn, right_btn])
+    inline_keyboard.push([{text: 'Назад', callback_data: states.Изменить_дату}])
+    var reply_markup = {}
+    reply_markup.inline_keyboard = inline_keyboard
     var options = {
-        reply_markup: getMonthMarkup(year, month),
+        reply_markup: reply_markup,
         chat_id: chat_id, 
         message_id: message_id,
         parse_mode: "markdown"
@@ -616,14 +653,14 @@ function CalendarMenuEditMsg(chat_id, message_id, year, month) {
 }
 
 
-var calendar = new Calendar()
-function Calendar() {
-    this.dayNames   = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-    this.monthNames = [
-        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
-    ]
-}
+// var calendar = new Calendar()
+// function Calendar() {
+//     this.dayNames   = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+//     this.monthNames = [
+//         "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+//         "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+//     ]
+// }
 // function getMonthMarkup(year, month) {
 //     var inline_keyboard = []
 //     var days_btns = []
