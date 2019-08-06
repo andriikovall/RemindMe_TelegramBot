@@ -6,28 +6,28 @@
  * I am  waiting for all your comments and suggestions!
  * Btw, yeah, bot UI sucks
  */
-
 const config_dir = `${__dirname}/../config/`
-const bot_token_file = 'bot_token.json'
-const users_file = 'users.json'
-const notes_file = 'notes.json'
-
-var request = require('request');
+const USERS_FILE = 'users.json'
+const NOTES_FILE = 'notes.json'
+const CAT_URL = 'https://api.thecatapi.com/v1/images/search'
 
 
-var fs = require("fs");
-var emodji = require('./emodji.json')
-var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
-const TOKEN = require(config_dir + bot_token_file)['token']
-// const request = require('request') @todo
-var C = require('small_calendar_js')
+require('dotenv').config();
+const C = require('small_calendar_js')
+const request = require('request');
+const fs = require("fs");
+const emodji = require('./emodji.json')
+const fetch = require('node-fetch');
+
 const calendar = new C.Calendar() 
+const TOKEN = process.env.BOT_TOKEN
+
 calendar.setOptions({dayToStartWeek: 1})
 
 var TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(TOKEN, { polling: true, timeout: 500 });
 
-rawdata = fs.readFileSync(config_dir + users_file); //@todo fix this
+rawdata = fs.readFileSync(config_dir + USERS_FILE); //@todo fix this
 var USERS = JSON.parse(rawdata ,getDateFromJSON)
 
 function getDateFromJSON(key, value) {
@@ -39,7 +39,7 @@ function getDateFromJSON(key, value) {
 }
 
 
-rawdata = fs.readFileSync(config_dir + notes_file);
+rawdata = fs.readFileSync(config_dir + NOTES_FILE);
 var NOTES = JSON.parse(rawdata , getDateFromJSON)
 
 var start_date = new Date(Date.now())
@@ -112,7 +112,7 @@ function getUserById(id) {
 
 function saveUsers() {
     let user_data = JSON.stringify(USERS, null, '   ')
-    fs.writeFileSync(config_dir + users_file, user_data)
+    fs.writeFileSync(config_dir + USERS_FILE, user_data)
 }
 
 function checkUserData(user) {
@@ -129,7 +129,7 @@ function checkUserData(user) {
 
 function saveNotes() {
     let notes_data = JSON.stringify(NOTES, null, '   ')
-    fs.writeFileSync(config_dir + notes_file, notes_data)
+    fs.writeFileSync(config_dir + NOTES_FILE, notes_data)
 }
 
 var states = require('./states.json')
@@ -380,19 +380,17 @@ var HttpClient = function () {
     }
 }
 
-function sendCat(id) {
-    let user = getUserById(id)
-    if (user == null) {
-        user = msg.from
-        user.cat_count = 0
-    }
-    user.cat_count += 1
-    checkUserData(user)
-    var client = new HttpClient();
-    client.get('https://api.thecatapi.com/v1/images/search', function (response) {
-        let image_url = JSON.parse(response)[0]['url']
-        bot.sendPhoto(id, image_url) 
-    });
+async function getCatUrl() {
+    const res = await fetch(CAT_URL);
+    const data = await res.json();
+    return data[0].url;
+}
+
+
+
+async function sendCat(id) {
+    const imgUrl = await getCatUrl();
+    bot.sendPhoto(id, imgUrl)
 }
 
 
@@ -509,6 +507,17 @@ bot.on('polling_error', function(err) {
     console.log(err)
 })
 
+function getUserCurrDate(user) {
+    var date = new Date(Date.now())
+    if (user.minute_offset !== undefined) {
+        date.setMinutes(date.getMinutes() - user.minute_offset)
+    } else {
+        console.warn('Current user date not found')
+    }
+    return date
+}
+
+
 
 bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     const action = callbackQuery.data;
@@ -550,15 +559,15 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         text = "Введите текст для заметки"
         bot.sendMessage(user.id, text)
     } else if (action == states.Сегодня) {
-        user.buffer_note.date = new Date(Date.now())
+        user.buffer_note.date = getUserCurrDate(user)
         note_menu_edit_msg(msg.chat.id, msg.message_id)
     } else if (action == states.Завтра) {
-        let date = new Date(Date.now())
+        let date = getUserCurrDate(user)
         date.setDate(date.getDate() + 1)
         user.buffer_note.date = date
         note_menu_edit_msg(msg.chat.id, msg.message_id)
     } else if (action == states.Послезавтра) {
-        let date = new Date(Date.now())
+        let date = getUserCurrDate(user)
         date.setDate(date.getDate() + 2)
         user.buffer_note.date = date
         note_menu_edit_msg(msg.chat.id, msg.message_id)
@@ -651,71 +660,6 @@ function CalendarMenuEditMsg(chat_id, message_id, year, _month) {
     }
     bot.editMessageText("*Выберите дату*", options)
 }
-
-
-// var calendar = new Calendar()
-// function Calendar() {
-//     this.dayNames   = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-//     this.monthNames = [
-//         "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-//         "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
-//     ]
-// }
-// function getMonthMarkup(year, month) {
-//     var inline_keyboard = []
-//     var days_btns = []
-//     var month_btn = [{text: calendar.monthNames[month] + " " + year, callback_data: 0}]
-//     inline_keyboard.push(month_btn)
-//     calendar.dayNames.forEach(element => {
-//         days_btns.push({text: element, callback_data: 0})
-//     });
-//     inline_keyboard.push(days_btns)
-//     var date = new Date(year, month)
-//     var day = date.getDay()
-//     var array_of_days = new Array(5)
-//     for (var i = 0; i < 6; i++) {
-//         array_of_days[i] = new Array(7)
-//         for (let j = 0; j < 7; j++) {
-//             array_of_days[i][j] = {text: ' ', callback_data: 0}
-//         }
-//     }
-//     i = getDayNumFromMonday(day)
-//     let day_counter = 1
-//     array_of_days[0][i].text = '1'
-//     array_of_days.forEach(element => {
-//         var week_is_in_month = false
-//         for (;i < 7; i++) {
-//             date.setDate(day_counter)
-//             if (date.getMonth() == month) {
-//                 week_is_in_month = true
-//                 element[i].text = (day_counter).toString()
-//                 element[i].callback_data = new Date(year, month, day_counter).toDateString()
-//                 day_counter++
-//             }
-//         }
-
-//         i = 0
-//         if (week_is_in_month)
-//             inline_keyboard.push(element)
-//     })
-//     var new_right_year = Number(year)
-//     var new_left_year = new_right_year
-//     var new_right_month = Number(month) + 1
-//     if (new_right_month == 12) {
-//         new_right_month = 0
-//         new_right_year += 1
-//     }
-//     var new_left_month = (month - 1) < 0 ? 11 : month - 1
-//     if (new_left_month == 11) 
-//         new_left_year -= 1 
-//     var right_btn = {text: ">>>", callback_data: `${new_right_year}_${new_right_month}`}
-//     var left_btn =  {text: "<<<", callback_data: `${new_left_year}_${new_left_month}`}
-//     inline_keyboard.push([left_btn, right_btn])
-//     inline_keyboard.push([{text: 'Назад', callback_data: states.Изменить_дату}])
-//     var reply_markup = {}
-//     reply_markup.inline_keyboard = inline_keyboard
-//     return JSON.stringify(reply_markup)
-// }
 
 function isValidDate(date) {
 	return Object.prototype.toString.call(date) === '[object Date]' && date.getTime() === date.getTime()
