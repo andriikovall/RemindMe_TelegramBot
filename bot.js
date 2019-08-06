@@ -10,7 +10,7 @@ require('dotenv').config();
 
 
 const config_dir = `${__dirname}/../config/`
-const USERS_FILE = 'users.json'
+const USERS_FILE = 'users2.json'
 const NOTES_FILE = 'notes.json'
 const CAT_URL = 'https://api.thecatapi.com/v1/images/search'
 
@@ -47,13 +47,13 @@ var NOTES = JSON.parse(rawdata , getDateFromJSON)
 var start_date = new Date(Date.now())
 
 setInterval(function() {
-    var curr_date = new Date(Date.now())
-    default_note.date = curr_date
-    default_note.time.h = curr_date.getHours()
-    default_note.time.m = curr_date.getMinutes()
+    var currDate = new Date(Date.now())
+    defaultNote.date = currDate
+    defaultNote.time.h = currDate.getHours()
+    defaultNote.time.m = currDate.getMinutes()
 }, 60000)
 
-var default_note = {
+var defaultNote = {
     text: '',
     date: start_date,
     time: {h: start_date.getHours(), m: start_date.getMinutes()},
@@ -61,19 +61,19 @@ var default_note = {
 }
 
 function checkNotes() {
-    let curr_date = new Date()
+    let currDate = new Date()
     for (let i in NOTES) {
         let curr_note_date = NOTES[i].date
-        if (curr_note_date.getDate() == curr_date.getDate() && 
-            curr_note_date.getHours() == curr_date.getHours() && 
-            curr_note_date.getMinutes() == curr_date.getMinutes()) {
+        if (curr_note_date.getDate() == currDate.getDate() && 
+            curr_note_date.getHours() == currDate.getHours() && 
+            curr_note_date.getMinutes() == currDate.getMinutes()) {
                 let reminder_text = `*Напоминание:*\n${NOTES[i].text}`
                 let opts = {
                     parse_mode: 'markdown'
                 }
                 bot.sendMessage(NOTES[i].user_id, reminder_text, opts)
                 console.log("Send message when dates are equal")
-                console.log("Curr date -- " + curr_date)
+                console.log("Curr date -- " + currDate)
                 console.log("Curr note date -- " + curr_note_date)
                 NOTES.splice(i, 1)
                 saveNotes()
@@ -104,17 +104,13 @@ function usersContain(user) {
 }
 
 function getUserById(id) {
-    for (let i in USERS) {
-        if (USERS[i].id == id) {
-            return USERS[i]
-        }
-    }
-    return null
+    const user = USERS[id.toString()]
+    return user === undefined ? null : user;
 }
 
 function saveUsers() {
-    let user_data = JSON.stringify(USERS, null, '   ')
-    fs.writeFileSync(config_dir + USERS_FILE, user_data)
+    let userData = JSON.stringify(USERS, null, '   ')
+    fs.writeFileSync(config_dir + USERS_FILE, userData)
 }
 
 function checkUserData(user) {
@@ -122,16 +118,16 @@ function checkUserData(user) {
     if (!usersContain(user)) {
         user.cat_count = 0
         USERS.push(user)
-        const greeting_msg = 'Привет, это бот для создание напоминалок! Для начала работы боту нужно получить Ваше точное время либо геолокацию в данный момент'
-        bot.sendMessage(user.id, greeting_msg)
+        const greetingMsg = 'Привет, это бот для создание напоминалок! Для начала работы боту нужно получить Ваше точное время либо геолокацию в данный момент'
+        bot.sendMessage(user.id, greetingMsg)
         getUserTimeOffset(user.id)
     }
     saveUsers()
 }
 
 function saveNotes() {
-    let notes_data = JSON.stringify(NOTES, null, '   ')
-    fs.writeFileSync(config_dir + NOTES_FILE, notes_data)
+    let notesData = JSON.stringify(NOTES, null, '   ')
+    fs.writeFileSync(config_dir + NOTES_FILE, notesData)
 }
 
 var states = require('./states.json')
@@ -147,9 +143,9 @@ function onStartMsg(id) {
 
 function setUserMinuteOffset(user, user_mins) {
     var server_mins = function() {
-        var curr_date = new Date
-        var minutes = curr_date.getMinutes()
-        var hours = curr_date.getHours()
+        var currDate = new Date
+        var minutes = currDate.getMinutes()
+        var hours = currDate.getHours()
         return hours * 60 + minutes
     }
     console.log(server_mins())
@@ -188,7 +184,7 @@ function locationRequest(user_id, lat, long) {
 }
 
 function onStart(user) {
-    user.buffer_note = JSON.parse(JSON.stringify(default_note), getDateFromJSON)
+    user.buffer_note = JSON.parse(JSON.stringify(defaultNote), getDateFromJSON)
     user.buffer_note.user_id = user.id
     user.state = 0
     checkUserData(user)
@@ -583,7 +579,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         user.buffer_note.date.setMinutes(user.buffer_note.time.m - user.minute_offset) 
         NOTES.push(user.buffer_note)
         saveNotes()
-        user.buffer_note = JSON.parse(JSON.stringify(default_note), getDateFromJSON) 
+        user.buffer_note = JSON.parse(JSON.stringify(defaultNote), getDateFromJSON) 
         bot.deleteMessage(msg.chat.id, msg.message_id)
         onStartMsg(msg.chat.id)
         query_reply_text = "Заметка создана!"
@@ -594,8 +590,8 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         var year = tmp_date[0], month = tmp_date[1]
         CalendarMenuEditMsg(msg.chat.id, msg.message_id, year, month)
     } else if (action == states.Другая_дата) {
-        var curr_date = new Date()
-        CalendarMenuEditMsg(msg.chat.id, msg.message_id, curr_date.getFullYear(), curr_date.getMonth())
+        var currDate = new Date()
+        CalendarMenuEditMsg(msg.chat.id, msg.message_id, currDate.getFullYear(), currDate.getMonth())
     } else if (action == states.Изменить_минуты || action == states.Изменить_часы) {
         if (action == states.Изменить_минуты) {
             text = 'Введите минуты'
