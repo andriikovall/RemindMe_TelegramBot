@@ -6,13 +6,15 @@
  * I am  waiting for all your comments and suggestions!
  * Btw, yeah, bot UI sucks
  */
+require('dotenv').config();
+
+
 const config_dir = `${__dirname}/../config/`
 const USERS_FILE = 'users.json'
 const NOTES_FILE = 'notes.json'
 const CAT_URL = 'https://api.thecatapi.com/v1/images/search'
 
 
-require('dotenv').config();
 const C = require('small_calendar_js')
 const request = require('request');
 const fs = require("fs");
