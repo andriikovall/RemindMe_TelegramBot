@@ -9,7 +9,9 @@
     "node-telegram-bot-api": "^0.30.0",
     "small_calendar_js": "0.0.4"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "eslint": "^6.2.1"
+  },
   "scripts": {
     "start": "node bot.js",
     "test": "echo \"Error: no test specified\" && exit 1"

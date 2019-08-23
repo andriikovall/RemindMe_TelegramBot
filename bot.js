@@ -13,24 +13,24 @@ const config_dir = `${__dirname}/../config/`
 const USERS_FILE = 'users2.json'
 const NOTES_FILE = 'notes.json'
 const CAT_URL = 'https://api.thecatapi.com/v1/images/search'
+const TOKEN = process.env.BOT_TOKEN
 
 
-const C = require('small_calendar_js')
+var TelegramBot = require('node-telegram-bot-api');
+const Calendar = require('small_calendar_js').Calendar
 const request = require('request');
 const fs = require("fs");
 const emodji = require('./emodji.json')
 const fetch = require('node-fetch');
 
-const calendar = new C.Calendar() 
-const TOKEN = process.env.BOT_TOKEN
+const calendar = new Calendar({dayToStartWeek: 1}) 
 
-calendar.setOptions({dayToStartWeek: 1})
-
-var TelegramBot = require('node-telegram-bot-api');
 const bot = new TelegramBot(TOKEN, { polling: true, timeout: 500 });
 
-rawdata = fs.readFileSync(config_dir + USERS_FILE); //@todo fix this
-var USERS = JSON.parse(rawdata ,getDateFromJSON)
+
+
+let rawdata = fs.readFileSync(config_dir + USERS_FILE); //@todo fix this
+let USERS = JSON.parse(rawdata ,getDateFromJSON)
 
 function getDateFromJSON(key, value) {
     if (key == 'date') {
@@ -148,12 +148,10 @@ function setUserMinuteOffset(user, user_mins) {
         var hours = currDate.getHours()
         return hours * 60 + minutes
     }
-    console.log(server_mins())
-    console.log(user_mins)
     user['minute_offset'] = user_mins - server_mins()
     user.state = 0
     checkUserData(user)
-    var reply = 'Спасибо, теперь можете начать пользоваться ботом!'
+    const reply = 'Спасибо, теперь можете начать пользоваться ботом!'
     bot.sendMessage(user.id, reply)
     onStartMsg(user.id)
 }
@@ -170,12 +168,16 @@ function locationRequest(user_id, lat, long) {
         form: {
             lat: lat, 
             lng: long,
-            username: 'ZioVio'
+            username: process.env.GEONAMES_API_USERNAME
         }
     }, function(error, response, body) {
-    if (typeof response !== 'undefined')  {
+    if (response.statusCode != 200) {
+        console.error(error)
+        bot.sendMessage(user_id, 'Ошибка с определением времени по местоположению')
+        user.state = states.Поделится_своим_временем
+        saveUsers()
+    } else if (typeof response !== 'undefined')  {
         if (response.body.status === undefined) {
-            //@todo handle errors
             let user_date = new Date(JSON.parse(response.body).time)
             setUserMinuteOffset(user, user_date.getHours() * 60 + user_date.getMinutes())
         }
@@ -194,20 +196,20 @@ function onStart(user) {
     
 
 function getMonthName(month) {
-    let raw_month = calendar.opts.monthNames[month] // @todo fix
-    if (raw_month.endsWith('т')) {
-        raw_month += 'а'
+    let monthRussianString = calendar.opts.monthNames[month] // @todo fix
+    if (monthRussianString.endsWith('т')) {
+        monthRussianString += 'а'
     } else {
-        raw_month = raw_month.slice(0, -1)
-        raw_month += 'я'
+        monthRussianString = monthRussianString.slice(0, -1)
+        monthRussianString += 'я'
     }
-    return raw_month
+    return monthRussianString
 }
 function dateToRussian(date) { // @todo fix!!!!!!!
-    let day_name = calendar.opts.dayNames[getDayNumFromMonday(date.getDay())]
-    let month_name = getMonthName(date.getMonth())
-    let date_str_rus = `${day_name}, ${date.getDate()} ${month_name} ${date.getFullYear()}`
-    return date_str_rus
+    let dayString = calendar.opts.dayNames[getDayNumFromMonday(date.getDay())]; calendar.ali
+    let monthString = getMonthName(date.getMonth())
+    let dateString = `${dayString}, ${date.getDate()} ${monthString} ${date.getFullYear()}`
+    return dateString
 }
 
 function noteToStr(note) {
@@ -329,7 +331,7 @@ bot.on('message', function(msg) {
             }
             checkUserData(user)
             note_menu_new_msg(user.id)
-        } else if (user.state == states.Поделится_своим_временем) {
+        } else if (user.state == states.Поделится_своим_временем && msg.text) {
             let time = msg.text 
             let err_text = 'Неправильное время'
             if (time.length < 3) {
@@ -364,19 +366,6 @@ bot.on('message', function(msg) {
     }
 });
     
-
-var HttpClient = function () {
-    this.get = function (aUrl, aCallback) {
-        var anHttpRequest = new XMLHttpRequest();
-        anHttpRequest.onreadystatechange = function () {
-            if (anHttpRequest.readyState == 4 && anHttpRequest.status == 200)
-                aCallback(anHttpRequest.responseText);
-        }
-
-        anHttpRequest.open("GET", aUrl, true);
-        anHttpRequest.send(null);
-    }
-}
 
 async function getCatUrl() {
     const res = await fetch(CAT_URL);
@@ -482,11 +471,6 @@ function checkHours(hour) {
 bot.on('location', function(msg) {
     var longitude = msg.location.longitude
     var latitude = msg.location.latitude
-    console.group('Location')
-    console.log("Recieved location")
-    console.log(latitude)
-    console.log(longitude)
-    console.groupEnd()
     let user = getUserById(msg.chat.id)
     if (user == null) {
         console.error('user is null: error')
@@ -502,7 +486,7 @@ bot.on('location', function(msg) {
 })
 
 bot.on('polling_error', function(err) {
-    console.log(err)
+    console.error(err)
 })
 
 function getUserCurrDate(user) {
@@ -619,11 +603,11 @@ function CalendarMenuEditMsg(chat_id, message_id, year, _month) {
     var month = calendar.getMonth(year, _month, 1)
     var inline_keyboard = []
     inline_keyboard.push([{text: month.month + " " + year.toString(), callback_data: 0}])
-    var day_names = []
+    var dayStrings = []
     month.days.forEach(day => {
-        day_names.push({text: day, callback_data: 0})
+        dayStrings.push({text: day, callback_data: 0})
     })
-    inline_keyboard.push(day_names)
+    inline_keyboard.push(dayStrings)
     month.weeks_arr.forEach(week => {
         var week_keyboard = []
         week.forEach(day => {
