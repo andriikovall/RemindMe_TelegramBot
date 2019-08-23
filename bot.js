@@ -662,3 +662,11 @@ function getDayNumFromMonday(day_number) {
         return day_number - 1
     }
 }
+
+// hack for heroku
+
+const http = require('http');
+http.createServer((req, res) => {
+    res.write('Hello World!');
+    res.end();
+}).listen(process.env.PORT || 8084);
