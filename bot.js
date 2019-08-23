@@ -13,6 +13,7 @@ require('dotenv').config();
  * refactor to another lib
 **/
 
+
 const paths =      require('./paths.json')
 const states =     require(paths.STATES_FILE)
 const USERS_FILE = paths.USERS_FILE
@@ -27,6 +28,10 @@ const request =   require('request');
 const fs =        require("fs");
 const emodji =    require(paths.EMODJI_FILE)
 const fetch =     require('node-fetch');
+
+if (!fs.existsSync('config')) { //@todo another check. This is hardcoded dir for a data
+    fs.mkdirSync('config')
+}
 
 const calendar = new Calendar({dayToStartWeek: 1}) 
 
