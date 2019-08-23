@@ -1,7 +1,0 @@
-{
-    "USERS_FILE":  "config/users.json", 
-    "NOTES_FILE":  "config/notes.json", 
-    "EMODJI_FILE": "./emodji.json", 
-    "STATES_FILE": "./states.json", 
-    "CAT_URL":     "https://api.thecatapi.com/v1/images/search"
-}

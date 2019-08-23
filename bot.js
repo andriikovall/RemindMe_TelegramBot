@@ -8,29 +8,41 @@
  */
 require('dotenv').config();
 
+/**@todo in future
+ * delete unnecessary messages
+ * refactor to another lib
+**/
 
-const config_dir = `${__dirname}/../config/`
-const USERS_FILE = 'users2.json'
-const NOTES_FILE = 'notes.json'
-const CAT_URL = 'https://api.thecatapi.com/v1/images/search'
-const TOKEN = process.env.BOT_TOKEN
+const paths =      require('./paths.json')
+const states =     require(paths.STATES_FILE)
+const USERS_FILE = paths.USERS_FILE
+const NOTES_FILE = paths.NOTES_FILE
+const CAT_URL =    paths.CAT_URL
+const TOKEN =      process.env.BOT_TOKEN
 
 
 var TelegramBot = require('node-telegram-bot-api');
-const Calendar = require('small_calendar_js').Calendar
-const request = require('request');
-const fs = require("fs");
-const emodji = require('./emodji.json')
-const fetch = require('node-fetch');
+const Calendar =  require('small_calendar_js').Calendar
+const request =   require('request');
+const fs =        require("fs");
+const emodji =    require(paths.EMODJI_FILE)
+const fetch =     require('node-fetch');
 
 const calendar = new Calendar({dayToStartWeek: 1}) 
 
 const bot = new TelegramBot(TOKEN, { polling: true, timeout: 500 });
 
+let USERS = getFileObj(USERS_FILE, getDateFromJSON, {});
+let NOTES = getFileObj(NOTES_FILE, getDateFromJSON, []);
 
-
-let rawdata = fs.readFileSync(config_dir + USERS_FILE); //@todo fix this
-let USERS = JSON.parse(rawdata ,getDateFromJSON)
+function getFileObj(path, callbackParser, errorReturnValue) {
+    try {
+        let rawdata = fs.readFileSync(path, {encoding: 'utf-8'});
+        return JSON.parse(rawdata, callbackParser);
+    } catch (err) {
+        return errorReturnValue;
+    }
+}
 
 function getDateFromJSON(key, value) {
     if (key == 'date') {
@@ -41,11 +53,6 @@ function getDateFromJSON(key, value) {
 }
 
 
-rawdata = fs.readFileSync(config_dir + NOTES_FILE);
-var NOTES = JSON.parse(rawdata , getDateFromJSON)
-
-var start_date = new Date(Date.now())
-
 setInterval(function() {
     var currDate = new Date(Date.now())
     defaultNote.date = currDate
@@ -53,6 +60,7 @@ setInterval(function() {
     defaultNote.time.m = currDate.getMinutes()
 }, 60000)
 
+var start_date = new Date(Date.now())
 var defaultNote = {
     text: '',
     date: start_date,
@@ -110,14 +118,15 @@ function getUserById(id) {
 
 function saveUsers() {
     let userData = JSON.stringify(USERS, null, '   ')
-    fs.writeFileSync(config_dir + USERS_FILE, userData)
+    fs.writeFileSync(USERS_FILE, userData)
+
 }
 
 function checkUserData(user) {
     user.buffer_note.user_id = user.id
     if (!usersContain(user)) {
         user.cat_count = 0
-        USERS.push(user)
+        USERS[user.id.toString()] = user
         const greetingMsg = 'Привет, это бот для создание напоминалок! Для начала работы боту нужно получить Ваше точное время либо геолокацию в данный момент'
         bot.sendMessage(user.id, greetingMsg)
         getUserTimeOffset(user.id)
@@ -127,10 +136,9 @@ function checkUserData(user) {
 
 function saveNotes() {
     let notesData = JSON.stringify(NOTES, null, '   ')
-    fs.writeFileSync(config_dir + NOTES_FILE, notesData)
+    fs.writeFileSync(NOTES_FILE, notesData)
 }
 
-var states = require('./states.json')
 
 function onStartMsg(id) {
     var options = {
