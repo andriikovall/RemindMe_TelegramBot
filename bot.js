@@ -13,19 +13,15 @@ require('dotenv').config();
  * refactor to another lib
  **/
 
-const paths = require('./paths.json')
-const states = require(paths.STATES_FILE)
-const USERS_FILE = paths.USERS_FILE
-const NOTES_FILE = paths.NOTES_FILE
-const CAT_URL = paths.CAT_URL
-const TOKEN = process.env.BOT_TOKEN
-const {
-	storage
-} = require('./utils/db_storage');
-const DB = new storage()
-DB.getAllUsers()
+const paths = require('./paths.json');
+const states = require(paths.STATES_FILE);
+const USERS_FILE = paths.USERS_FILE;
+const NOTES_FILE = paths.NOTES_FILE;
+const CAT_URL = paths.CAT_URL;
+const TOKEN = process.env.BOT_TOKEN || '868898801:AAEZdDClQ8unR4uGPpraHki2LAIf81epEkw';
+const {	storage } = require('./utils/db_storage');
+const DB = new storage();
 
-DB.getAllUsers()
 
 
 const TelegramBot = require('node-telegram-bot-api');
@@ -134,11 +130,6 @@ function usersContain(user) {
 	return false
 }
 
-function getUserById(id) {
-	const user = USERS[id.toString()]
-	return user === undefined ? null : user;
-}
-
 function saveUsers() {
 	let userData = JSON.stringify(USERS, null, '   ')
 	fs.writeFileSync(USERS_FILE, userData)
@@ -146,14 +137,18 @@ function saveUsers() {
 }
 
 function checkUserData(user) {
-	user.buffer_note.user_id = user.id
-	if (!usersContain(user)) {
-		user.cat_count = 0
-		USERS[user.id.toString()] = user
-		const greetingMsg = 'Привет, это бот для создание напоминалок! Для начала работы боту нужно получить Ваше точное время либо геолокацию в данный момент'
-		bot.sendMessage(user.id, greetingMsg)
-		getUserTimeOffset(user.id)
-	}
+	user.buffer_note.user_id = user.id;
+	DB.getUserById(user.id, (user) => {
+		if (user) {
+			user.cat_count = 0;
+			const greetingMsg = 'Привет, это бот для создание напоминалок! Для начала работы боту нужно получить Ваше точное время либо геолокацию в данный момент'
+			bot.sendMessage(user.id, greetingMsg);
+			getUserTimeOffset(user.id);
+			user.buffer_note = defaultNote;
+			delete user.is_bot;
+			DB.insertUser(user);
+		}
+	}) 
 	saveUsers()
 }
 
@@ -188,19 +183,20 @@ function setUserMinuteOffset(user, user_mins) {
 }
 
 function locationRequest(user_id, lat, long) {
-	let user = getUserById(user_id)
-	if (user == null) {
-		console.error('user is null error')
-		return
-	}
-	request({
-		uri: "http://api.geonames.org/timezoneJSON",
-		method: "POST",
-		form: {
-			lat: lat,
-			lng: long,
-			username: process.env.GEONAMES_API_USERNAME
+	DB.getUserById(user_id, (user) => {
+
+		if (user == null) {
+			console.error('user is null error')
+			return
 		}
+		request({
+			uri: "http://api.geonames.org/timezoneJSON",
+			method: "POST",
+			form: {
+				lat: lat,
+				lng: long,
+				username: process.env.GEONAMES_API_USERNAME
+			}
 	}, function(error, response, body) {
 		if (response.statusCode != 200) {
 			console.error(error)
@@ -214,6 +210,7 @@ function locationRequest(user_id, lat, long) {
 			}
 		}
 	})
+});
 }
 
 function onStart(user) {
@@ -291,15 +288,16 @@ function note_menu_edit_msg(chat_id, message_id) {
 }
 
 function time_menu(chat_id, message_id) {
-	let user = getUserById(chat_id) //@todo separate in 2 funcs
-	let reply_markup = getTimeMarkup(user.buffer_note.time.h, user.buffer_note.time.m)
-	let opts = {
-		chat_id: chat_id,
-		message_id: message_id,
-		reply_markup: reply_markup
-	}
-	let text = 'Нажмите на значение, что бы его изменить ' + emodji.finger_down
-	bot.editMessageText(text, opts)
+	DB.getUserById(chat_id, (user) => {
+		let reply_markup = getTimeMarkup(user.buffer_note.time.h, user.buffer_note.time.m)
+		let opts = {
+			chat_id: chat_id,
+			message_id: message_id,
+			reply_markup: reply_markup
+		}
+		let text = 'Нажмите на значение, что бы его изменить ' + emodji.finger_down
+		bot.editMessageText(text, opts)
+	}) //@todo separate in 2 funcs
 }
 
 
@@ -312,50 +310,55 @@ function changeUserBufferMinutes(user_id, minutes) {
 	if (isNaN(minutes)) {
 		return
 	}
-	let user = getUserById(user_id)
-	user.buffer_note.time.m = minutes
-	user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
-	checkUserData(user)
+	DB.getUserById(user_id, (user) => {
+
+		user.buffer_note.time.m = minutes
+		user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
+		checkUserData(user)
+	}) //@todo beautify
 }
 
 function changeUserBufferHours(user_id, hours) {
 	if (isNaN(hours)) {
 		return
 	}
-	let user = getUserById(user_id)
+	let user = DB.getUserById(user_id)
 	user.buffer_note.time.h = hours
 	user.buffer_note.time.h = checkHours(user.buffer_note.time.h)
 	checkUserData(user)
 }
 
 function onTimeChange(user_id) {
-	let user = getUserById(user_id)
-	if (user == null) {
-		console.error('user is null: error')
-		return
-	}
-	let reply_markup = getTimeMarkup(user.buffer_note.time.h, user.buffer_note.time.m)
-	let opts = {
-		reply_markup: reply_markup
-	}
-	let text = 'Нажмите на значение, что бы его изменить' + emodji.finger_down
-	bot.sendMessage(user.id, text, opts)
-	user.state = 0
-	checkUserData(user)
+	DB.getUserById(user_id, (user) => {
+
+		if (user == null) {
+			console.error('user is null: error')
+			return
+		}
+		let reply_markup = getTimeMarkup(user.buffer_note.time.h, user.buffer_note.time.m)
+		let opts = {
+			reply_markup: reply_markup
+		}
+		let text = 'Нажмите на значение, что бы его изменить' + emodji.finger_down
+		bot.sendMessage(user.id, text, opts)
+		user.state = 0
+		checkUserData(user)
+	})	
 }
 bot.on('message', function(msg) {
-	let user = getUserById(msg.chat.id)
-	if (user == null) return
-	if (msg.text == 'Передать точное время') {
-		if (user.state != states.Поделится_своим_временем) {
-			return
+	DB.getUserById(msg.chat.id, (user) => {
+
+		if (user == null) returnж
+		if (msg.text == 'Передать точное время') {
+			if (user.state != states.Поделится_своим_временем) {
+			return;
 		}
 		let reply = 'Отправьте свое точное время в формате \'чч:мм\' или \'чч-мм\' или \'чч мм\' в 24-часовом формате'
 		bot.sendMessage(user.id, reply)
 		return;
 	}
 	if ('state' in user) {
-
+		
 		if (user.state == states.Изменить_текст) {
 			user.buffer_note.text = msg.text
 			user.state = 0
@@ -374,10 +377,10 @@ bot.on('message', function(msg) {
 			for (let char of ['-', ':', ' ', '^', '.', '/', '\\', '*', ';', '+', '_', '%', '#', '@', '?']) {
 				time_arr = time.split(char)
 				if (time_arr.length == 2)
-					break
+				break
 			}
 			let h = 0,
-				m = 0
+			m = 0
 			if (time_arr.length != 2) {
 				bot.sendMessage(msg.chat.id, err_text)
 				return
@@ -399,6 +402,7 @@ bot.on('message', function(msg) {
 		}
 	}
 });
+});
 
 
 async function getCatUrl() {
@@ -415,7 +419,7 @@ async function sendCat(id) {
 }
 
 
-bot.onText(/cat/, function(msg, match) {
+bot.onText(/cat/, function(msg) {
 	sendCat(msg.chat.id)
 });
 
@@ -435,21 +439,23 @@ function getUserTimeOffset(chat_id) {
 			]
 		}
 	};
-	let text = "Для коректной работы напоминаний и синхронизацией с сервером необходимо получить Ваш часовой пояс.\n\n\
+	const text = "Для коректной работы напоминаний и синхронизацией с сервером необходимо получить Ваш часовой пояс.\n\n\
 Вы можете передать нам свою геолокацию для автоматического определения часового пояса, а можете отправить свое точное время в даный момент"
-	let user = getUserById(chat_id)
-	if (user == null) {
-		console.error('user is null: error')
-		return
-	}
-	user['state'] = states.Поделится_своим_временем
-	saveUsers()
-	bot.sendMessage(chat_id, text, opts)
+	DB.getUserById(chat_id, (user) => {
+
+		if (user == null) {
+			console.error('user is null: getUserTimeOffset error');
+			return;
+		}
+		user['state'] = states.Поделится_своим_временем;
+		saveUsers();
+		bot.sendMessage(chat_id, text, opts);
+	});
 
 }
 
-bot.onText(/timestamp/, function(msg, match) {
-	getUserTimeOffset(msg.chat.id)
+bot.onText(/timestamp/, function(msg) {
+	getUserTimeOffset(msg.chat.id);
 });
 
 const on_start_markup = JSON.stringify({
@@ -555,18 +561,20 @@ function checkHours(hour) {
 bot.on('location', function(msg) {
 	let longitude = msg.location.longitude
 	let latitude = msg.location.latitude
-	let user = getUserById(msg.chat.id)
-	if (user == null) {
-		console.error('user is null: error')
-		return
-	}
-	if ('state' in user) {
-		if (user.state != states.Поделится_своим_временем) {
+	DB.getUserById(msg.chat.id, (user) => {
+
+		if (user == null) {
+			console.error('user is null: error')
 			return
 		}
-		locationRequest(msg.chat.id, latitude, longitude)
-	}
-
+		if ('state' in user) {
+			if (user.state != states.Поделится_своим_временем) {
+				return
+			}
+			locationRequest(msg.chat.id, latitude, longitude)
+		}
+		
+	});
 })
 
 bot.on('polling_error', function(err) {
@@ -591,12 +599,13 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
 	let text;
 	let query_reply_text = ""
 
-	let user = getUserById(msg.chat.id)
-	if (user == null) {
-		console.error('user is null: error')
-		return
-	}
-	if (user.state != 0) {
+	DB.getUserById(msg.chat.id, (user) => {
+
+		if (user == null) {
+			console.error('user is null: error')
+			return
+		}
+		if (user.state != 0) {
 		bot.answerCallbackQuery(callbackQuery.id, query_reply_text)
 		return
 	}
@@ -610,7 +619,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
 			message_id: msg.message_id,
 			reply_markup: change_date_markup,
 			parse_mode: "markdown"
-
+			
 		}
 		text = noteToStr(user.buffer_note)
 		bot.editMessageText(text, opts)
@@ -656,7 +665,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
 	} else if (action.indexOf('_') != -1) {
 		let tmp_date = action.split('_')
 		let year = tmp_date[0],
-			month = tmp_date[1]
+		month = tmp_date[1]
 		CalendarMenuEditMsg(msg.chat.id, msg.message_id, year, month)
 	} else if (action == states.Другая_дата) {
 		let currDate = new Date()
@@ -673,13 +682,14 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
 	} else {
 		let btn_date = new Date(action)
 		if (isValidDate(btn_date) && action != 0) {
-
+			
 			user.buffer_note.date.setFullYear(btn_date.getFullYear())
 			user.buffer_note.date.setMonth(btn_date.getMonth(), btn_date.getDate())
 			note_menu_edit_msg(msg.chat.id, msg.message_id)
 		}
 	}
-	saveUsers()
+});
+	saveUsers();
 	bot.answerCallbackQuery(callbackQuery.id, query_reply_text)
 });
 
