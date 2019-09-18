@@ -5,6 +5,7 @@
   "main": "bot.js",
   "dependencies": {
     "dotenv": "^8.0.0",
+    "mysql": "^2.17.1",
     "node-fetch": "^2.6.0",
     "node-telegram-bot-api": "^0.30.0",
     "small_calendar_js": "0.0.4"

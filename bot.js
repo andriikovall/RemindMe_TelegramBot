@@ -13,21 +13,25 @@ require('dotenv').config();
  * refactor to another lib
 **/
 
-
 const paths =      require('./paths.json')
 const states =     require(paths.STATES_FILE)
 const USERS_FILE = paths.USERS_FILE
 const NOTES_FILE = paths.NOTES_FILE
 const CAT_URL =    paths.CAT_URL
 const TOKEN =      process.env.BOT_TOKEN
+const { storage } = require('./utils/db_storage');
+const DB = new storage()
+DB.getAllUsers()
+
+DB.getAllUsers()
 
 
-var TelegramBot = require('node-telegram-bot-api');
-const Calendar =  require('small_calendar_js').Calendar
-const request =   require('request');
-const fs =        require("fs");
-const emodji =    require(paths.EMODJI_FILE)
-const fetch =     require('node-fetch');
+const TelegramBot  = require('node-telegram-bot-api');
+const { Calendar } = require('small_calendar_js')
+const request =      require('request');
+const fs =           require("fs");
+const emodji =       require(paths.EMODJI_FILE)
+const fetch =        require('node-fetch');
 
 if (!fs.existsSync('config')) { //@todo another check. This is hardcoded dir for a data
     fs.mkdirSync('config')
@@ -59,14 +63,14 @@ function getDateFromJSON(key, value) {
 
 
 setInterval(function() {
-    var currDate = new Date(Date.now())
+    let currDate = new Date(Date.now())
     defaultNote.date = currDate
     defaultNote.time.h = currDate.getHours()
     defaultNote.time.m = currDate.getMinutes()
 }, 60000)
 
-var start_date = new Date(Date.now())
-var defaultNote = {
+let start_date = new Date(Date.now())
+let defaultNote = {
     text: '',
     date: start_date,
     time: {h: start_date.getHours(), m: start_date.getMinutes()},
@@ -146,7 +150,7 @@ function saveNotes() {
 
 
 function onStartMsg(id) {
-    var options = {
+    let options = {
         reply_markup: on_start_markup,
         parse_mode: 'markdown'
     };
@@ -155,10 +159,10 @@ function onStartMsg(id) {
 }
 
 function setUserMinuteOffset(user, user_mins) {
-    var server_mins = function() {
-        var currDate = new Date
-        var minutes = currDate.getMinutes()
-        var hours = currDate.getHours()
+    let server_mins = function() {
+        let currDate = new Date
+        let minutes = currDate.getMinutes()
+        let hours = currDate.getHours()
         return hours * 60 + minutes
     }
     user['minute_offset'] = user_mins - server_mins()
@@ -170,7 +174,7 @@ function setUserMinuteOffset(user, user_mins) {
 }
 
 function locationRequest(user_id, lat, long) {
-    var user = getUserById(user_id)
+    let user = getUserById(user_id)
     if (user == null) {
         console.error('user is null error')
         return
@@ -330,7 +334,7 @@ bot.on('message', function(msg) {
         if (user.state != states.Поделится_своим_временем) {
             return
         }
-        var  reply = 'Отправьте свое точное время в формате \'чч:мм\' или \'чч-мм\' или \'чч мм\' в 24-часовом формате'
+        let  reply = 'Отправьте свое точное время в формате \'чч:мм\' или \'чч-мм\' или \'чч мм\' в 24-часовом формате'
         bot.sendMessage(user.id, reply)
         return;
     }
@@ -339,7 +343,7 @@ bot.on('message', function(msg) {
         if (user.state == states.Изменить_текст) {
             user.buffer_note.text = msg.text
             user.state = 0
-            var opts = {
+            let opts = {
                 reply_markup: create_note_markup
             }
             checkUserData(user)
@@ -356,7 +360,7 @@ bot.on('message', function(msg) {
                 if (time_arr.length == 2)
                     break        
             }
-            var h = 0, m = 0
+            let h = 0, m = 0
             if (time_arr.length != 2) {
                 bot.sendMessage(msg.chat.id, err_text)
                 return
@@ -367,7 +371,7 @@ bot.on('message', function(msg) {
                 bot.sendMessage(msg.chat.id, err_text)
                 return
             }
-            var user_mins = h * 60 + m
+            let user_mins = h * 60 + m
             setUserMinuteOffset(user, user_mins)
         } else if (user.state == states.Изменить_минуты) {
             changeUserBufferMinutes(msg.chat.id, Number(msg.text))
@@ -399,7 +403,7 @@ bot.onText(/cat/, function (msg, match) {
 });
 
 function getUserTimeOffset(chat_id) {
-    var opts = {
+    let opts = {
         "reply_markup": {
             one_time_keyboard: true,
             resize_keyboard: true,
@@ -409,7 +413,7 @@ function getUserTimeOffset(chat_id) {
             }], [{text: "Передать точное время"}]]
         }
     };
-    var text = "Для коректной работы напоминаний и синхронизацией с сервером необходимо получить Ваш часовой пояс.\n\n\
+    let text = "Для коректной работы напоминаний и синхронизацией с сервером необходимо получить Ваш часовой пояс.\n\n\
 Вы можете передать нам свою геолокацию для автоматического определения часового пояса, а можете отправить свое точное время в даный момент"
     let user = getUserById(chat_id)
     if (user == null) {
@@ -452,8 +456,8 @@ const change_date_markup = JSON.stringify({
 })
 
 function getTimeMarkup(h, m) {
-    var hours = h.toString().length < 2 ? '0' + h : h
-    var minutes = m.toString().length < 2 ? '0' + m : m
+    let hours = h.toString().length < 2 ? '0' + h : h
+    let minutes = m.toString().length < 2 ? '0' + m : m
     let reply_markup = {
         inline_keyboard: [
             [{ text: hours, callback_data: states.Изменить_часы }, { text: minutes, callback_data: states.Изменить_минуты }],
@@ -482,8 +486,8 @@ function checkHours(hour) {
 }
 
 bot.on('location', function(msg) {
-    var longitude = msg.location.longitude
-    var latitude = msg.location.latitude
+    let longitude = msg.location.longitude
+    let latitude = msg.location.latitude
     let user = getUserById(msg.chat.id)
     if (user == null) {
         console.error('user is null: error')
@@ -503,7 +507,7 @@ bot.on('polling_error', function(err) {
 })
 
 function getUserCurrDate(user) {
-    var date = new Date(Date.now())
+    let date = new Date(Date.now())
     if (user.minute_offset !== undefined) {
         date.setMinutes(date.getMinutes() - user.minute_offset)
     } else {
@@ -583,11 +587,11 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     } else if (action == states.Отправить_геолокацию) {
         user.state = states.Отправить_геолокацию
     } else if (action.indexOf('_') != -1) {
-        var tmp_date = action.split('_')
-        var year = tmp_date[0], month = tmp_date[1]
+        let tmp_date = action.split('_')
+        let year = tmp_date[0], month = tmp_date[1]
         CalendarMenuEditMsg(msg.chat.id, msg.message_id, year, month)
     } else if (action == states.Другая_дата) {
-        var currDate = new Date()
+        let currDate = new Date()
         CalendarMenuEditMsg(msg.chat.id, msg.message_id, currDate.getFullYear(), currDate.getMonth())
     } else if (action == states.Изменить_минуты || action == states.Изменить_часы) {
         if (action == states.Изменить_минуты) {
@@ -599,7 +603,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         }
         bot.sendMessage(user.id, text)
     } else {
-        var btn_date = new Date(action)
+        let btn_date = new Date(action)
         if (isValidDate(btn_date) && action != 0) {
 
             user.buffer_note.date.setFullYear(btn_date.getFullYear())
@@ -613,41 +617,41 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
 
 
 function CalendarMenuEditMsg(chat_id, message_id, year, _month) {
-    var month = calendar.getMonth(year, _month, 1)
-    var inline_keyboard = []
+    let month = calendar.getMonth(year, _month, 1)
+    let inline_keyboard = []
     inline_keyboard.push([{text: month.month + " " + year.toString(), callback_data: 0}])
-    var dayStrings = []
+    let dayStrings = []
     month.days.forEach(day => {
         dayStrings.push({text: day, callback_data: 0})
     })
     inline_keyboard.push(dayStrings)
     month.weeks_arr.forEach(week => {
-        var week_keyboard = []
+        let week_keyboard = []
         week.forEach(day => {
-            var date_text = day != 0 ? new Date(year, _month, day).toDateString() : 0
-            var day_text = day != 0 ? day.toString() : '  ' 
+            let date_text = day != 0 ? new Date(year, _month, day).toDateString() : 0
+            let day_text = day != 0 ? day.toString() : '  ' 
             week_keyboard.push({text: day_text, callback_data: date_text })
         })
         inline_keyboard.push(week_keyboard)
     })
 
-    var new_right_year = Number(year)
-    var new_left_year = new_right_year
-    var new_right_month = Number(_month) + 1
+    let new_right_year = Number(year)
+    let new_left_year = new_right_year
+    let new_right_month = Number(_month) + 1
     if (new_right_month == 12) {
         new_right_month = 0
         new_right_year += 1
     }
-    var new_left_month = (_month - 1) < 0 ? 11 : _month - 1
+    let new_left_month = (_month - 1) < 0 ? 11 : _month - 1
     if (new_left_month == 11) 
         new_left_year -= 1 
-    var right_btn = {text: ">>>", callback_data: `${new_right_year}_${new_right_month}`}
-    var left_btn =  {text: "<<<", callback_data: `${new_left_year}_${new_left_month}`}
+    let right_btn = {text: ">>>", callback_data: `${new_right_year}_${new_right_month}`}
+    let left_btn =  {text: "<<<", callback_data: `${new_left_year}_${new_left_month}`}
     inline_keyboard.push([left_btn, right_btn])
     inline_keyboard.push([{text: 'Назад', callback_data: states.Изменить_дату}])
-    var reply_markup = {}
+    let reply_markup = {}
     reply_markup.inline_keyboard = inline_keyboard
-    var options = {
+    let options = {
         reply_markup: reply_markup,
         chat_id: chat_id, 
         message_id: message_id,
