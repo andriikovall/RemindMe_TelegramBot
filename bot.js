@@ -119,27 +119,27 @@ function getUserBufferNote(id) {
 	return null
 }
 
-function usersContain(user) {
-	for (let i in USERS) {
-		if (USERS[i].id == user.id) {
-			user.cat_count = USERS[i].cat_count
-			USERS[i] = user
-			return true
-		}
-	}
-	return false
-}
+// function usersContain(user) {
+// 	for (let i in USERS) {
+// 		if (USERS[i].id == user.id) {
+// 			user.cat_count = USERS[i].cat_count;
+// 			USERS[i] = user;
+// 			return true;
+// 		}
+// 	}
+// 	return false;
+// }
 
-function saveUsers() {
-	let userData = JSON.stringify(USERS, null, '   ')
-	fs.writeFileSync(USERS_FILE, userData)
+// function DB.saveUser(user) {
+// 	let userData = JSON.stringify(USERS, null, '   ')
+// 	fs.writeFileSync(USERS_FILE, userData)
 
-}
+// }
 
 function checkUserData(user) {
 	user.buffer_note.user_id = user.id;
-	DB.getUserById(user.id, (user) => {
-		if (user) {
+	DB.getUserById(user.id, (db_user) => {
+		if (!db_user) {
 			user.cat_count = 0;
 			const greetingMsg = 'Привет, это бот для создание напоминалок! Для начала работы боту нужно получить Ваше точное время либо геолокацию в данный момент'
 			bot.sendMessage(user.id, greetingMsg);
@@ -148,8 +148,8 @@ function checkUserData(user) {
 			delete user.is_bot;
 			DB.insertUser(user);
 		}
-	}) 
-	saveUsers()
+		DB.saveUser(user);
+	}); 
 }
 
 function saveNotes() {
@@ -202,7 +202,7 @@ function locationRequest(user_id, lat, long) {
 			console.error(error)
 			bot.sendMessage(user_id, 'Ошибка с определением времени по местоположению')
 			user.state = states.Поделится_своим_временем
-			saveUsers()
+			DB.saveUser(user)
 		} else if (typeof response !== 'undefined') {
 			if (response.body.status === undefined) {
 				let user_date = new Date(JSON.parse(response.body).time)
@@ -277,9 +277,9 @@ function note_menu_edit_msg(chat_id, message_id) {
 		reply_markup: create_note_markup,
 		parse_mode: "markdown"
 	}
-	let note = getUserBufferNote(chat_id)
+	let note = getUserBufferNote(chat_id);
 	if (note == null) {
-		bot.editMessageText("error", opts)
+		bot.editMessageText("error", opts);
 	} else {
 		let text = noteToStr(note)
 		bot.editMessageText(text, opts)
@@ -295,7 +295,7 @@ function time_menu(chat_id, message_id) {
 			message_id: message_id,
 			reply_markup: reply_markup
 		}
-		let text = 'Нажмите на значение, что бы его изменить ' + emodji.finger_down
+		let text = 'Нажмите на значение, что бы его изменить ' + emodji.finger_down;
 		bot.editMessageText(text, opts)
 	}) //@todo separate in 2 funcs
 }
@@ -308,19 +308,19 @@ bot.onText(/start/, function(msg, match) {
 
 function changeUserBufferMinutes(user_id, minutes) {
 	if (isNaN(minutes)) {
-		return
+		return;
 	}
 	DB.getUserById(user_id, (user) => {
 
-		user.buffer_note.time.m = minutes
-		user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m)
-		checkUserData(user)
+		user.buffer_note.time.m = minutes;
+		user.buffer_note.time.m = checkMinutes(user.buffer_note.time.m);
+		checkUserData(user);
 	}) //@todo beautify
 }
 
 function changeUserBufferHours(user_id, hours) {
 	if (isNaN(hours)) {
-		return
+		return;
 	}
 	let user = DB.getUserById(user_id)
 	user.buffer_note.time.h = hours
@@ -348,7 +348,7 @@ function onTimeChange(user_id) {
 bot.on('message', function(msg) {
 	DB.getUserById(msg.chat.id, (user) => {
 
-		if (user == null) returnж
+		if (user == null) return;
 		if (msg.text == 'Передать точное время') {
 			if (user.state != states.Поделится_своим_временем) {
 			return;
@@ -415,12 +415,13 @@ async function getCatUrl() {
 
 async function sendCat(id) {
 	const imgUrl = await getCatUrl();
-	bot.sendPhoto(id, imgUrl)
+	//@todo cat_count
+	bot.sendPhoto(id, imgUrl);
 }
 
 
 bot.onText(/cat/, function(msg) {
-	sendCat(msg.chat.id)
+	sendCat(msg.chat.id);
 });
 
 function getUserTimeOffset(chat_id) {
@@ -448,7 +449,7 @@ function getUserTimeOffset(chat_id) {
 			return;
 		}
 		user['state'] = states.Поделится_своим_временем;
-		saveUsers();
+		DB.saveUser(user);
 		bot.sendMessage(chat_id, text, opts);
 	});
 
@@ -559,19 +560,19 @@ function checkHours(hour) {
 }
 
 bot.on('location', function(msg) {
-	let longitude = msg.location.longitude
-	let latitude = msg.location.latitude
+	let longitude = msg.location.longitude;
+	let latitude = msg.location.latitude;
 	DB.getUserById(msg.chat.id, (user) => {
 
 		if (user == null) {
-			console.error('user is null: error')
-			return
+			console.error('user is null: error');
+			return;
 		}
 		if ('state' in user) {
 			if (user.state != states.Поделится_своим_временем) {
-				return
+				return;
 			}
-			locationRequest(msg.chat.id, latitude, longitude)
+			locationRequest(msg.chat.id, latitude, longitude);
 		}
 		
 	});
@@ -588,7 +589,7 @@ function getUserCurrDate(user) {
 	} else {
 		console.warn('Current user date not found')
 	}
-	return date
+	return date;
 }
 
 
@@ -688,8 +689,8 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
 			note_menu_edit_msg(msg.chat.id, msg.message_id)
 		}
 	}
+	DB.saveUser(user);
 });
-	saveUsers();
 	bot.answerCallbackQuery(callbackQuery.id, query_reply_text)
 });
 
