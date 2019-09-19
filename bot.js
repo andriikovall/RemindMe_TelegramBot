@@ -15,8 +15,8 @@ require('dotenv').config();
 
 const paths = require('./paths.json');
 const states = require(paths.STATES_FILE);
-const USERS_FILE = paths.USERS_FILE;
-const NOTES_FILE = paths.NOTES_FILE;
+// const USERS_FILE = paths.USERS_FILE;
+// const NOTES_FILE = paths.NOTES_FILE;
 const CAT_URL = paths.CAT_URL;
 const TOKEN = process.env.BOT_TOKEN;
 const {	storage } = require('./utils/db_storage');
@@ -29,52 +29,33 @@ const {
 	Calendar
 } = require('small_calendar_js')
 const request = require('request');
-const fs = require("fs");
 const emodji = require(paths.EMODJI_FILE)
 const fetch = require('node-fetch');
 
-if (!fs.existsSync('config')) { //@todo another check. This is hardcoded dir for a data
-	fs.mkdirSync('config')
-}
-
 const calendar = new Calendar({
 	dayToStartWeek: 1
-})
+});
 
 const bot = new TelegramBot(TOKEN, {
 	polling: true,
 	timeout: 500
 });
 
-// let USERS = getFileObj(USERS_FILE, getDateFromJSON, {});
-// let NOTES = getFileObj(NOTES_FILE, getDateFromJSON, []);
-
-// function getFileObj(path, callbackParser, errorReturnValue) {
-// 	try {
-// 		let rawdata = fs.readFileSync(path, {
-// 			encoding: 'utf-8'
-// 		});
-// 		return JSON.parse(rawdata, callbackParser);
-// 	} catch (err) {
-// 		return errorReturnValue;
-// 	}
-// }
-
 function getDateFromJSON(key, value) {
 	if (key == 'date') {
-		return new Date(value)
+		return new Date(value);
 	} else {
-		return value
+		return value;
 	}
 }
 
 
 setInterval(function() {
-	let currDate = new Date(Date.now())
-	defaultNote.date = currDate
-	defaultNote.time.h = currDate.getHours()
-	defaultNote.time.m = currDate.getMinutes()
-}, 60000)
+	let currDate = new Date(Date.now());
+	defaultNote.date = currDate;
+	defaultNote.time.h = currDate.getHours();
+	defaultNote.time.m = currDate.getMinutes();
+}, 60000);
 
 let start_date = new Date(Date.now())
 let defaultNote = {
@@ -113,29 +94,12 @@ function checkNotes() {
 
 setInterval(checkNotes, 55000);
 
-// function usersContain(user) {
-// 	for (let i in USERS) {
-// 		if (USERS[i].id == user.id) {
-// 			user.cat_count = USERS[i].cat_count;
-// 			USERS[i] = user;
-// 			return true;
-// 		}
-// 	}
-// 	return false;
-// }
-
-// function DB.saveUser(user) {
-// 	let userData = JSON.stringify(USERS, null, '   ')
-// 	fs.writeFileSync(USERS_FILE, userData)
-
-// }
-
 function checkUserData(user) {
-	// user.buffer_note.user_id = user.id;
 	DB.getUserById(user.id, (db_user) => {
 		console.log(user);
 		if (!db_user) {
 			user.cat_count = 0;
+			//@todo put this text into file
 			const greetingMsg = 'Привет, это бот для создание напоминалок! Для начала работы боту нужно получить Ваше точное время либо геолокацию в данный момент'
 			bot.sendMessage(user.id, greetingMsg);
 			getUserTimeOffset(db_user);
@@ -190,8 +154,8 @@ function locationRequest(user, lat, long) {
 			}
 	}, function(error, response, body) {
 		if (response.statusCode != 200) {
-			console.error(error)
-			bot.sendMessage(user_id, 'Ошибка с определением времени по местоположению');
+			console.error(error);
+			bot.sendMessage(user.id, 'Ошибка с определением времени по местоположению');
 			user.state = states.Поделится_своим_временем;
 			DB.saveUser(user);
 		} else if (response) {
@@ -229,7 +193,7 @@ function dateToRussian(date) { // @todo fix!!!!!!!
 	// calendar.ali
 	let monthString = getMonthName(date.getMonth());
 	let dateString = `${dayString}, ${date.getDate()} ${monthString} ${date.getFullYear()}`;
-	return dateString
+	return dateString;
 }
 
 function noteToStr(note) {
@@ -343,9 +307,6 @@ bot.on('message', function(msg) {
 		if (user.state == states.Изменить_текст) {
 			user.buffer_note.text = msg.text;
 			user.state = 0;
-			// let opts = {
-			// 	reply_markup: create_note_markup
-			// };
 			note_menu_new_msg(user);
 		} else if (user.state == states.Поделится_своим_временем && msg.text) {
 			let time = msg.text;
@@ -402,6 +363,12 @@ async function sendCat(id) {
 
 bot.onText(/cat/, function(msg) {
 	sendCat(msg.chat.id);
+	DB.getUserById(msg.chat.id, user => { //@todo fix
+		if (user == null) return;
+		user.cat_count += 1;
+		console.log('HERE', user.cat_count);
+		DB.saveUser(user);
+	});
 });
 
 function getUserTimeOffset(user) {

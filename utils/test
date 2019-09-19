@@ -1,1 +1,0 @@
-INSERT INTO users (id,first_name,last_name,username,language_code,state,cat_count,buffer_note_date,buffer_note_text,buffer_note_time_h,buffer_note_time_m) VALUES  (379946182,"Andrii",Koval,ZioSmith,en,0,0,"2019-09-18T19:21:18.209Z","",22,21)
