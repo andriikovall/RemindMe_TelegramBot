@@ -18,7 +18,7 @@ const states = require(paths.STATES_FILE);
 const USERS_FILE = paths.USERS_FILE;
 const NOTES_FILE = paths.NOTES_FILE;
 const CAT_URL = paths.CAT_URL;
-const TOKEN = process.env.BOT_TOKEN || '868898801:AAEZdDClQ8unR4uGPpraHki2LAIf81epEkw';
+const TOKEN = process.env.BOT_TOKEN;
 const {	storage } = require('./utils/db_storage');
 const DB = new storage();
 
