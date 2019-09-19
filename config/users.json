@@ -1,0 +1,22 @@
+{
+   "379946182": {
+      "id": 379946182,
+      "is_bot": false,
+      "first_name": "Andrii",
+      "last_name": "Koval",
+      "username": "ZioSmith",
+      "language_code": "en",
+      "buffer_note": {
+         "text": "",
+         "date": "2019-09-18T17:01:15.353Z",
+         "time": {
+            "h": 20,
+            "m": 1
+         },
+         "user_id": 0
+      },
+      "state": 0,
+      "cat_count": 0,
+      "minute_offset": 0
+   }
+}

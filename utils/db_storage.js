@@ -11,9 +11,27 @@ function userObjToRow(user) {
     userRow.buffer_note_time_h =  user.buffer_note.time.h;
     userRow.buffer_note_time_m =  user.buffer_note.time.m;
     delete userRow.buffer_note;
+    delete userRow.is_bot;
     if (userRow.is_bot) 
         delete userRow.is_bot;
     return userRow;
+}
+
+function noteRowToObj(noteRow) {
+    noteRow.time = {};
+    noteRow.time.m = noteRow.time_m;
+    noteRow.time.h = noteRow.time_h;
+    noteRow.date = new Date(noteRow.date);
+    delete noteRow.time_m;
+    delete noteRow.time_h;
+    // return noteRow;
+}
+
+function noteObjToRow(note) {
+    note.time_h = note.time.h;
+    note.time_m = note.time.m;
+    note.date = note.date.toISOString();
+    delete note.time;
 }
 
 function getKeysAndValuesStrings(obj) {
@@ -55,7 +73,7 @@ function userRowToObj(userRow) {
             h: userRow.buffer_note_time_h, 
             m: userRow.buffer_note_time_m
         }
-    }
+    };
     delete userRow.buffer_note_date;
     delete userRow.buffer_note_time_h;
     delete userRow.buffer_note_time_m;
@@ -79,8 +97,12 @@ const storage = function() {
     });
 
     this.getAllUsers = (callback) => {
-        con.query("SELECT * FROM users", function (err, result) {
+        const sql = "SELECT * FROM users";
+        con.query(sql, function (err, result) {
             if (err) throw err;
+            result.forEach(userRow => {
+                userRow = userRowToObj(userRow); //@todo test
+            });
             callback(result);
         });
     };  
@@ -95,6 +117,7 @@ const storage = function() {
             }
             //@todo table_1 users, table_2 buffer_notes but here is a shitcode)
             const user = userRowToObj(result[0]);
+            //@todo  test without const user;
             callback(user);
         });
     };
@@ -104,9 +127,9 @@ const storage = function() {
         const {keys, values} = getKeysAndValuesStrings(userRow);
         const sql = `INSERT INTO users ${keys} VALUES  ${values}`;
         con.query(sql, function (err, result) {
-            // if (err) throw err;
+            if (err) console.log(err);
             if (result)
-                console.log("Number of records inserted: " + result.affectedRows);
+                console.log("Number of users inserted: " + result.affectedRows);
         });
     };
 
@@ -114,13 +137,49 @@ const storage = function() {
         const userRow = userObjToRow(user);
         const setStr = getSetString(userRow);
         const sql = `UPDATE users Set ${setStr} WHERE id = ${user.id}`;
-        console.log(sql);
+        // console.log(sql);
         con.query(sql, function (err, result) {
             // if (err) throw err;
             if (result)
                 console.log("Number of records inserted: " + result.affectedRows);
         });
     };
+
+    this.addNote = (note) => {
+        //modify the note to fit db
+        noteObjToRow(note);
+        const {keys, values} = getKeysAndValuesStrings(note);
+        const sql = `INSERT INTO notes ${keys} VALUES  ${values}`;
+        console.log('NOTE INSERT!!!');
+        console.log(sql);
+        con.query(sql, function (err, result) {
+            // if (err) throw err;
+            if (result)
+                console.log("Number of notes inserted: " + result.affectedRows);
+        });
+    };
+
+    this.getAllNotes = (callback) => {
+        const sql = 'SELECT * from notes';
+        con.query(sql, function (err, result) {
+            if (err) throw err;
+            result.forEach(noteRow => noteRowToObj(noteRow));
+            callback(result);
+        });
+    };
+
+    this.getBufferNoteByUserId = (user_id, callback) => {
+        const sql = `SELECT buffer_note_text, buffer_note_date, buffer_note_time_m, buffer_note_time_h from users WHERE id = ${user_id}`;
+        con.query(sql, function (err, result) {
+            if (err) throw err;
+            if (result.length == 0) {
+                callback(null);
+                return;
+            }
+            result.forEach(noteRow => noteRowToObj(noteRow));
+            callback(result[0]);
+        });
+    }
 
 };
 
