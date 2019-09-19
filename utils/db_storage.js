@@ -78,12 +78,12 @@ const storage = function() {
         console.log("Connected!");
     });
 
-    this.getAllUsers = () => {
+    this.getAllUsers = (callback) => {
         con.query("SELECT * FROM users", function (err, result) {
             if (err) throw err;
-            console.log(result);
+            callback(result);
         });
-    }  
+    };  
     
     this.getUserById = (id, callback) => {
         const sql = "SELECT * FROM users where id = " + id;
@@ -97,7 +97,7 @@ const storage = function() {
             const user = userRowToObj(result[0]);
             callback(user);
         });
-    }
+    };
 
     this.insertUser = (user) => {
         const userRow = userObjToRow(user);
@@ -120,8 +120,8 @@ const storage = function() {
             if (result)
                 console.log("Number of records inserted: " + result.affectedRows);
         });
-    }
+    };
 
-}
+};
 
 module.exports = {storage};
