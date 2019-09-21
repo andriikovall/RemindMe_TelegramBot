@@ -356,19 +356,17 @@ async function getCatUrl() {
 
 async function sendCat(id) {
 	const imgUrl = await getCatUrl();
-	//@todo cat_count
+	DB.getUserById(id, user => { //@todo fix
+		if (user == null) return;
+		user.cat_count += 1;
+		DB.saveUser(user);
+	});
 	bot.sendPhoto(id, imgUrl);
 }
 
 
 bot.onText(/cat/, function(msg) {
-	sendCat(msg.chat.id);
-	DB.getUserById(msg.chat.id, user => { //@todo fix
-		if (user == null) return;
-		user.cat_count += 1;
-		console.log('HERE', user.cat_count);
-		DB.saveUser(user);
-	});
+	sendCat(msg.chat.id);	
 });
 
 function getUserTimeOffset(user) {
@@ -559,6 +557,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
 		return;
 	}
 	if (action == states.Создать_заметку) {
+		bot.deleteMessage(user.id, msg.message_id);
 		note_menu_new_msg(user);
 	} else if (action == states.Получить_котика) {
 		sendCat(msg.chat.id);
