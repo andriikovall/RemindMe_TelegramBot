@@ -133,7 +133,10 @@ function setUserMinuteOffset(user, user_mins) {
 	};
 	user.minute_offset = user_mins - server_mins();
 	user.state = 0;
-	const reply = 'Спасибо, теперь можете начать пользоваться ботом!';
+}
+
+function timeOKReply(user) {
+	const reply = 'Спасибо, теперь можете пользоваться ботом!';
 	bot.sendMessage(user.id, reply);
 	onStartMsg(user.id);
 }
@@ -160,8 +163,11 @@ function locationRequest(user, lat, long) {
 			DB.saveUser(user);
 		} else if (response) {
 			if (response.body.status === undefined) {
-				let user_date = new Date(JSON.parse(response.body).time)
+				const user_date = new Date(JSON.parse(response.body).time);
 				setUserMinuteOffset(user, user_date.getHours() * 60 + user_date.getMinutes());
+				timeOKReply(user);
+				user.state = 0;
+				DB.saveUser(user);
 			}
 		}
 });
@@ -333,6 +339,8 @@ bot.on('message', function(msg) {
 			}
 			const user_mins = h * 60 + m;
 			setUserMinuteOffset(user, user_mins);
+			timeOKReply(user);
+			user.state = 0;
 		} else if (user.state == states.Изменить_минуты) {
 			changeUserBufferMinutes(user, parseInt(msg.text));
 			onTimeChange(user);
