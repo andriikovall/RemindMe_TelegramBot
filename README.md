@@ -1,6 +1,9 @@
 # RemindMe_TelegramBot
 A simple reminder telegram bot made with [`node-telegram-bot-api`](https://github.com/yagop/node-telegram-bot-api)
 
+
+# THIS PROJECT IS CLOSED AND WAS DONE ONLY FOR LEARNING PURPOSES
+
 ## Building and running
 
 - Make sure you that you have created `config` directory one level upper where such files are stored
